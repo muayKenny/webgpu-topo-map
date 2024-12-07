@@ -203,56 +203,6 @@ export class TopoRenderer {
     this.colorBuffer.unmap();
   }
 
-  oldSetupGeometry(data: ProcessedElevationData) {
-    if (!this.device) return;
-
-    // Create a grid of vertices
-    const vertices: number[] = [];
-    this.dimensions = data.dimensions;
-    const width = this.dimensions.width;
-    const height = this.dimensions.height;
-
-    // Create vertices for each point in the grid
-    for (let y = 0; y < height - 1; y++) {
-      for (let x = 0; x < width - 1; x++) {
-        // Convert grid coordinates to clip space (-1 to 1)
-        const x1 = (x / (width - 1)) * 2 - 1;
-        const x2 = ((x + 1) / (width - 1)) * 2 - 1;
-        const y1 = (y / (height - 1)) * 2 - 1;
-        const y2 = ((y + 1) / (height - 1)) * 2 - 1;
-
-        // First triangle
-        vertices.push(x1, y1); // top-left
-        vertices.push(x2, y1); // top-right
-        vertices.push(x1, y2); // bottom-left
-
-        // Second triangle
-        vertices.push(x2, y1); // top-right
-        vertices.push(x2, y2); // bottom-right
-        vertices.push(x1, y2); // bottom-left
-      }
-    }
-
-    // Create and populate the vertex buffer
-    this.vertexBuffer = this.device.createBuffer({
-      size: vertices.length * 4,
-      usage: GPUBufferUsage.VERTEX,
-      mappedAtCreation: true,
-    });
-    new Float32Array(this.vertexBuffer.getMappedRange()).set(vertices);
-    this.vertexBuffer.unmap();
-
-    // Create and populate the color buffer
-    const colors = createColorBuffer(data.normalizedElevations);
-    this.colorBuffer = this.device.createBuffer({
-      size: colors.length * 4,
-      usage: GPUBufferUsage.VERTEX,
-      mappedAtCreation: true,
-    });
-    new Float32Array(this.colorBuffer.getMappedRange()).set(colors);
-    this.colorBuffer.unmap();
-  }
-
   render() {
     if (
       !this.device ||
