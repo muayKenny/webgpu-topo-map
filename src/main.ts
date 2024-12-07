@@ -25,6 +25,7 @@ async function main() {
 
     if (initialized) {
       console.log('WebGPU initialized successfully');
+      renderer.setupGeometry(processed);
       renderer.render();
     } else {
       console.error('Failed to initialize WebGPU');
