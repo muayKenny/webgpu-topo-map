@@ -1,6 +1,6 @@
 import { getColorForElevation } from '../utils/colorMapping';
 import { ProcessedElevationData } from '../utils/elevationProcessor';
-import { Mat4 } from './matrix';
+
 import {
   Vec3Array,
   ColorArray,

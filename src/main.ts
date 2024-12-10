@@ -1,9 +1,5 @@
-// src/main.ts
 import { loadElevationData } from './utils/loadElevation';
-import {
-  ProcessedElevationData,
-  processElevationData,
-} from './utils/elevationProcessor';
+import { processElevationData } from './utils/elevationProcessor';
 
 import { Topo2DRenderer } from './renderer/Topo2DRenderer';
 import { Topo3DRenderer } from './renderer/Topo3DRenderer';
