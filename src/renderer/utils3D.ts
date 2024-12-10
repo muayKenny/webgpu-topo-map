@@ -24,16 +24,16 @@ export interface Vertex {
   color: Color;
 }
 
-export interface GridPoint {
+export interface MeshVertex {
   position: Vec3;
   color: Color;
 }
 
 export interface QuadVertices {
-  topLeft: GridPoint;
-  topRight: GridPoint;
-  bottomLeft: GridPoint;
-  bottomRight: GridPoint;
+  topLeft: MeshVertex;
+  topRight: MeshVertex;
+  bottomLeft: MeshVertex;
+  bottomRight: MeshVertex;
 }
 
 // Helper functions to make code more readable
@@ -43,7 +43,7 @@ export const createVec3 = (x: number, y: number, z: number): Vec3 => ({
   z,
 });
 
-export const createGridPoint = (position: Vec3, color: Color): GridPoint => ({
+export const createMeshVertex = (position: Vec3, color: Color): MeshVertex => ({
   position,
   color,
 });

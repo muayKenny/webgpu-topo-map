@@ -4,9 +4,9 @@ import {
   Vec3Array,
   ColorArray,
   QuadVertices,
-  createGridPoint,
   createVec3,
   quadToTriangles,
+  createMeshVertex,
 } from './utils3D';
 
 export class Topo3DRenderer {
@@ -16,6 +16,8 @@ export class Topo3DRenderer {
   private pipeline: GPURenderPipeline | null = null;
   private vertexBuffer: GPUBuffer | null = null;
   private colorBuffer: GPUBuffer | null = null;
+  private uniformBuffer: GPUBuffer | null = null;
+  private bindGroup: GPUBindGroup | null = null;
   private dimensions: { width: number; height: number } | null = null;
   private vertexCount: number = 0;
 
@@ -49,28 +51,64 @@ export class Topo3DRenderer {
         alphaMode: 'premultiplied',
       });
 
+      // set up camera matrix buffer
+      this.uniformBuffer = this.device.createBuffer({
+        size: 64, // 4x4 matrix = 16 floats * 4 bytes each
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      });
+
+      // Create bind group layout
+      const bindGroupLayout = this.device.createBindGroupLayout({
+        entries: [
+          {
+            binding: 0,
+            visibility: GPUShaderStage.VERTEX,
+            buffer: { type: 'uniform' },
+          },
+        ],
+      });
+
+      const pipelineLayout = this.device.createPipelineLayout({
+        bindGroupLayouts: [bindGroupLayout],
+      });
+
+      this.bindGroup = this.device.createBindGroup({
+        layout: bindGroupLayout,
+        entries: [
+          {
+            binding: 0,
+            resource: { buffer: this.uniformBuffer },
+          },
+        ],
+      });
+
       // Create the render pipeline
       this.pipeline = this.device.createRenderPipeline({
-        layout: 'auto',
+        layout: pipelineLayout,
         vertex: {
           module: this.device.createShaderModule({
             code: `
-                struct VertexOutput {
-                  @builtin(position) position: vec4f,
-                  @location(0) color: vec3f,
-                }
-  
-                @vertex
-                fn main(
-                  @location(0) position: vec3f,
-                  @location(1) color: vec3f
-                ) -> VertexOutput {
-                  var output: VertexOutput;
-                  output.position = vec4f(position, 0.0, 1.0);
-                  output.color = color;
-                  return output;
-                }
-              `,
+            struct Uniforms {
+                viewMatrix: mat4x4f
+            }
+            @binding(0) @group(0) var<uniform> uniforms: Uniforms;
+
+            struct VertexOutput {
+                @builtin(position) position: vec4f,
+                @location(0) color: vec3f,
+            }
+
+            @vertex
+            fn main(
+                @location(0) position: vec3f,
+                @location(1) color: vec3f
+            ) -> VertexOutput {
+                var output: VertexOutput;
+                output.position = uniforms.viewMatrix * vec4f(position, 1.0);
+                output.color = color;
+                return output;
+            }
+            `,
           }),
           entryPoint: 'main',
           buffers: [
@@ -145,19 +183,19 @@ export class Topo3DRenderer {
         const y2 = ((y + 1) / (height - 1)) * 2 - 1;
 
         const quad: QuadVertices = {
-          topLeft: createPoint(
+          topLeft: createMeshVertex(
             createVec3(x1, y1, data.normalizedElevations[y * width + x]),
             getColorForElevation(data.normalizedElevations[y * width + x])
           ),
-          topRight: createGridPoint(
+          topRight: createMeshVertex(
             createVec3(x2, y1, data.normalizedElevations[y * width + (x + 1)]),
             getColorForElevation(data.normalizedElevations[y * width + (x + 1)])
           ),
-          bottomLeft: createGridPoint(
+          bottomLeft: createMeshVertex(
             createVec3(x1, y2, data.normalizedElevations[(y + 1) * width + x]),
             getColorForElevation(data.normalizedElevations[(y + 1) * width + x])
           ),
-          bottomRight: createGridPoint(
+          bottomRight: createMeshVertex(
             createVec3(
               x2,
               y2,
@@ -186,6 +224,7 @@ export class Topo3DRenderer {
     // Flatten here
     const flatVertices = vertices.flatMap((v) => [v.x, v.y, v.z]);
     new Float32Array(this.vertexBuffer.getMappedRange()).set(flatVertices);
+    this.vertexBuffer.unmap();
 
     this.colorBuffer = this.device.createBuffer({
       size: colors.length * 3 * 4,
@@ -205,7 +244,8 @@ export class Topo3DRenderer {
       !this.pipeline ||
       !this.vertexBuffer ||
       !this.colorBuffer ||
-      !this.dimensions
+      !this.dimensions ||
+      !this.bindGroup
     ) {
       return;
     }
@@ -225,6 +265,7 @@ export class Topo3DRenderer {
     });
 
     renderPass.setPipeline(this.pipeline);
+    renderPass.setBindGroup(0, this.bindGroup);
     renderPass.setVertexBuffer(0, this.vertexBuffer);
     renderPass.setVertexBuffer(1, this.colorBuffer);
     renderPass.draw(this.vertexCount);
