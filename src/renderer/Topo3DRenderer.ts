@@ -53,11 +53,19 @@ export class Topo3DRenderer {
         alphaMode: 'premultiplied',
       });
 
-      // set up camera matrix buffer
       this.uniformBuffer = this.device.createBuffer({
-        size: 64, // 4x4 matrix = 16 floats * 4 bytes each
+        size: 4, // Just one float (4 bytes) for elevation scale
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
+
+      const initialScale = new Float32Array([this.elevationScale]);
+      this.device.queue.writeBuffer(
+        this.uniformBuffer,
+        0,
+        initialScale.buffer,
+        initialScale.byteOffset,
+        initialScale.byteLength
+      );
 
       // Create bind group layout
       const bindGroupLayout = this.device.createBindGroupLayout({
@@ -86,7 +94,7 @@ export class Topo3DRenderer {
 
       // Create the render pipeline
       this.pipeline = this.device.createRenderPipeline({
-        layout: 'auto', // Changed from pipelineLayout since we don't need bindings
+        layout: pipelineLayout,
         vertex: {
           module: this.device.createShaderModule({
             code: `
@@ -94,24 +102,28 @@ export class Topo3DRenderer {
                     @builtin(position) position: vec4f,
                     @location(0) color: vec3f,
                 }
-    
-            @vertex
-            fn main(
-                @location(0) position: vec3f,
-                @location(1) color: vec3f
-            ) -> VertexOutput {
-                var output: VertexOutput;
-                
-                // Flip y and adjust the angle
-                output.position = vec4f(
-                    position.x,
-                  -position.y + position.z * ${this.elevationScale},  
-                    0.5,
-                    1.0
-                );
-                output.color = color;
-                return output;
-            }
+
+                struct Uniforms {
+                    elevationScale: f32
+                }
+                @binding(0) @group(0) var<uniform> uniforms: Uniforms;
+
+                @vertex
+                fn main(
+                    @location(0) position: vec3f,
+                    @location(1) color: vec3f
+                ) -> VertexOutput {
+                    var output: VertexOutput;
+                    
+                    output.position = vec4f(
+                        position.x,
+                        -position.y + position.z * uniforms.elevationScale,
+                        0.5,
+                        1.0
+                    );
+                    output.color = color;
+                    return output;
+                }
                 `,
           }),
           entryPoint: 'main',
@@ -241,20 +253,21 @@ export class Topo3DRenderer {
     this.colorBuffer.unmap();
   }
 
-  updateViewMatrix(viewMatrix: Mat4) {
+  updateElevationScale(scale: number) {
     if (!this.device || !this.uniformBuffer) return;
+
+    this.elevationScale = scale;
+    // Create a temporary buffer to hold the float value
+    const tempBuffer = new Float32Array([scale]);
 
     this.device.queue.writeBuffer(
       this.uniformBuffer,
       0,
-      viewMatrix.elements.buffer,
-      viewMatrix.elements.byteOffset,
-      viewMatrix.elements.byteLength
+      tempBuffer.buffer,
+      tempBuffer.byteOffset,
+      tempBuffer.byteLength
     );
-  }
 
-  updateElevationScale(scale: number) {
-    this.elevationScale = scale;
     this.render();
   }
 
