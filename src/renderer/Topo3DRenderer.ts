@@ -1,6 +1,13 @@
 import { getColorForElevation } from '../utils/colorMapping';
 import { ProcessedElevationData } from '../utils/elevationProcessor';
-// import { createColorBuffer } from '../utils/colorMapping';
+import {
+  Vec3Array,
+  ColorArray,
+  QuadVertices,
+  createGridPoint,
+  createVec3,
+  quadToTriangles,
+} from './utils3D';
 
 export class Topo3DRenderer {
   private canvas: HTMLCanvasElement;
@@ -55,7 +62,7 @@ export class Topo3DRenderer {
   
                 @vertex
                 fn main(
-                  @location(0) position: vec2f,
+                  @location(0) position: vec3f,
                   @location(1) color: vec3f
                 ) -> VertexOutput {
                   var output: VertexOutput;
@@ -68,13 +75,12 @@ export class Topo3DRenderer {
           entryPoint: 'main',
           buffers: [
             {
-              // Position (x,y)
-              arrayStride: 8,
+              arrayStride: 12,
               attributes: [
                 {
                   shaderLocation: 0,
                   offset: 0,
-                  format: 'float32x2',
+                  format: 'float32x3',
                 },
               ],
             },
@@ -126,80 +132,69 @@ export class Topo3DRenderer {
     const width = this.dimensions.width;
     const height = this.dimensions.height;
 
-    // Create vertices for the grid
-    const vertices: number[] = [];
-    const colors: number[] = []; // Create colors array to match vertices
+    const vertices: Vec3Array = [];
+    const colors: ColorArray = [];
 
-    // Calculate how many vertices we'll need
-    // Each quad needs 6 vertices (2 triangles)
     this.vertexCount = 6 * (width - 1) * (height - 1);
 
     for (let y = 0; y < height - 1; y++) {
       for (let x = 0; x < width - 1; x++) {
-        // Convert grid coordinates to clip space (-1 to 1)
         const x1 = (x / (width - 1)) * 2 - 1;
         const x2 = ((x + 1) / (width - 1)) * 2 - 1;
         const y1 = (y / (height - 1)) * 2 - 1;
         const y2 = ((y + 1) / (height - 1)) * 2 - 1;
 
-        // Get colors for each vertex
-        const colorTopLeft = getColorForElevation(
-          data.normalizedElevations[y * width + x]
-        );
-        const colorTopRight = getColorForElevation(
-          data.normalizedElevations[y * width + (x + 1)]
-        );
-        const colorBottomLeft = getColorForElevation(
-          data.normalizedElevations[(y + 1) * width + x]
-        );
-        const colorBottomRight = getColorForElevation(
-          data.normalizedElevations[(y + 1) * width + (x + 1)]
-        );
+        const quad: QuadVertices = {
+          topLeft: createPoint(
+            createVec3(x1, y1, data.normalizedElevations[y * width + x]),
+            getColorForElevation(data.normalizedElevations[y * width + x])
+          ),
+          topRight: createGridPoint(
+            createVec3(x2, y1, data.normalizedElevations[y * width + (x + 1)]),
+            getColorForElevation(data.normalizedElevations[y * width + (x + 1)])
+          ),
+          bottomLeft: createGridPoint(
+            createVec3(x1, y2, data.normalizedElevations[(y + 1) * width + x]),
+            getColorForElevation(data.normalizedElevations[(y + 1) * width + x])
+          ),
+          bottomRight: createGridPoint(
+            createVec3(
+              x2,
+              y2,
+              data.normalizedElevations[(y + 1) * width + (x + 1)]
+            ),
+            getColorForElevation(
+              data.normalizedElevations[(y + 1) * width + (x + 1)]
+            )
+          ),
+        };
 
-        // First triangle
-        // Top-left
-        vertices.push(x1, y1);
-        colors.push(colorTopLeft.r, colorTopLeft.g, colorTopLeft.b);
-
-        // Top-right
-        vertices.push(x2, y1);
-        colors.push(colorTopRight.r, colorTopRight.g, colorTopRight.b);
-
-        // Bottom-left
-        vertices.push(x1, y2);
-        colors.push(colorBottomLeft.r, colorBottomLeft.g, colorBottomLeft.b);
-
-        // Second triangle
-        // Top-right
-        vertices.push(x2, y1);
-        colors.push(colorTopRight.r, colorTopRight.g, colorTopRight.b);
-
-        // Bottom-right
-        vertices.push(x2, y2);
-        colors.push(colorBottomRight.r, colorBottomRight.g, colorBottomRight.b);
-
-        // Bottom-left
-        vertices.push(x1, y2);
-        colors.push(colorBottomLeft.r, colorBottomLeft.g, colorBottomLeft.b);
+        const triangleVertices = quadToTriangles(quad);
+        triangleVertices.forEach((vertex) => {
+          vertices.push(vertex.position);
+          colors.push(vertex.color);
+        });
       }
     }
 
-    // Create and populate the vertex buffer
     this.vertexBuffer = this.device.createBuffer({
-      size: vertices.length * 4, // 4 bytes per float
+      size: vertices.length * 3 * 4, // 3 numbers per Vec3, 4 bytes per float
       usage: GPUBufferUsage.VERTEX,
       mappedAtCreation: true,
     });
-    new Float32Array(this.vertexBuffer.getMappedRange()).set(vertices);
-    this.vertexBuffer.unmap();
 
-    // Create and populate the color buffer with the correct size
+    // Flatten here
+    const flatVertices = vertices.flatMap((v) => [v.x, v.y, v.z]);
+    new Float32Array(this.vertexBuffer.getMappedRange()).set(flatVertices);
+
     this.colorBuffer = this.device.createBuffer({
-      size: colors.length * 4, // 4 bytes per float
+      size: colors.length * 3 * 4,
       usage: GPUBufferUsage.VERTEX,
       mappedAtCreation: true,
     });
-    new Float32Array(this.colorBuffer.getMappedRange()).set(colors);
+
+    const flatColors = colors.flatMap((c) => [c.r, c.g, c.b]);
+    new Float32Array(this.colorBuffer.getMappedRange()).set(flatColors);
     this.colorBuffer.unmap();
   }
 
