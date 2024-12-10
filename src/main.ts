@@ -1,8 +1,11 @@
 // src/main.ts
 import { loadElevationData } from './utils/loadElevation';
-import { processElevationData } from './utils/elevationProcessor';
+import {
+  ProcessedElevationData,
+  processElevationData,
+} from './utils/elevationProcessor';
 
-// import { Topo2DRenderer } from './renderer/Topo2DRenderer';
+import { Topo2DRenderer } from './renderer/Topo2DRenderer';
 import { Topo3DRenderer } from './renderer/Topo3DRenderer';
 
 /* elevation.tiff: */
@@ -19,20 +22,65 @@ async function main() {
     const elevationData = await loadElevationData('/data/elevation.tiff');
     const processed = processElevationData(elevationData);
 
-    console.dir(processed, { depth: true });
+    let currentRenderer: Topo2DRenderer | Topo3DRenderer | null = null;
+    const elevationControl = document.getElementById(
+      'elevationControl'
+    ) as HTMLDivElement;
+    const scaleSlider = document.getElementById(
+      'elevationScale'
+    ) as HTMLInputElement;
+    const scaleValue = document.getElementById('scaleValue') as HTMLSpanElement;
 
-    // const renderer2D = new Topo2DRenderer('topoCanvas2D');
-    // const renderer3D = new Topo3DRenderer('topoCanvas3D');
-    const renderer = new Topo3DRenderer('topoCanvas');
-    const initialized = await renderer.initialize();
+    async function initializeRenderer(type: '2D' | '3D') {
+      if (type === '2D') {
+        currentRenderer = new Topo2DRenderer('topoCanvas');
+        elevationControl.style.display = 'none';
+      } else {
+        currentRenderer = new Topo3DRenderer('topoCanvas');
+        elevationControl.style.display = 'block';
+      }
 
-    if (initialized) {
-      console.log('WebGPU initialized successfully');
-      renderer.setupGeometry(processed);
-      renderer.render();
-    } else {
-      console.error('Failed to initialize WebGPU');
+      const initialized = await currentRenderer.initialize();
+      if (initialized) {
+        console.log(`${type} renderer initialized successfully`);
+        currentRenderer.setupGeometry(processed);
+        currentRenderer.render();
+        return true;
+      }
+      return false;
     }
+
+    // Set up button handlers
+    const btn2D = document.getElementById('render2D') as HTMLButtonElement;
+    const btn3D = document.getElementById('render3D') as HTMLButtonElement;
+
+    const updateButtons = (active: '2D' | '3D') => {
+      btn2D.classList.toggle('active', active === '2D');
+      btn3D.classList.toggle('active', active === '3D');
+    };
+
+    // Handle slider changes
+    scaleSlider.addEventListener('input', () => {
+      const scale = parseFloat(scaleSlider.value);
+      scaleValue.textContent = scale.toString();
+      if (currentRenderer instanceof Topo3DRenderer) {
+        currentRenderer.updateElevationScale(scale);
+      }
+    });
+
+    btn2D.addEventListener('click', async () => {
+      await initializeRenderer('2D');
+      updateButtons('2D');
+    });
+
+    btn3D.addEventListener('click', async () => {
+      await initializeRenderer('3D');
+      updateButtons('3D');
+    });
+
+    // Initialize with 2D view by default
+    await initializeRenderer('2D');
+    updateButtons('2D');
   } catch (error) {
     console.error('Error loading elevation data:', error);
   }

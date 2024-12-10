@@ -1,5 +1,6 @@
 import { getColorForElevation } from '../utils/colorMapping';
 import { ProcessedElevationData } from '../utils/elevationProcessor';
+import { Mat4 } from './matrix';
 import {
   Vec3Array,
   ColorArray,
@@ -20,6 +21,7 @@ export class Topo3DRenderer {
   private bindGroup: GPUBindGroup | null = null;
   private dimensions: { width: number; height: number } | null = null;
   private vertexCount: number = 0;
+  private elevationScale: number = 0.1;
 
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -84,31 +86,33 @@ export class Topo3DRenderer {
 
       // Create the render pipeline
       this.pipeline = this.device.createRenderPipeline({
-        layout: pipelineLayout,
+        layout: 'auto', // Changed from pipelineLayout since we don't need bindings
         vertex: {
           module: this.device.createShaderModule({
             code: `
-            struct Uniforms {
-                viewMatrix: mat4x4f
-            }
-            @binding(0) @group(0) var<uniform> uniforms: Uniforms;
-
-            struct VertexOutput {
-                @builtin(position) position: vec4f,
-                @location(0) color: vec3f,
-            }
-
+                struct VertexOutput {
+                    @builtin(position) position: vec4f,
+                    @location(0) color: vec3f,
+                }
+    
             @vertex
             fn main(
                 @location(0) position: vec3f,
                 @location(1) color: vec3f
             ) -> VertexOutput {
                 var output: VertexOutput;
-                output.position = uniforms.viewMatrix * vec4f(position, 1.0);
+                
+                // Flip y and adjust the angle
+                output.position = vec4f(
+                    position.x,
+                  -position.y + position.z * ${this.elevationScale},  
+                    0.5,
+                    1.0
+                );
                 output.color = color;
                 return output;
             }
-            `,
+                `,
           }),
           entryPoint: 'main',
           buffers: [
@@ -138,11 +142,11 @@ export class Topo3DRenderer {
         fragment: {
           module: this.device.createShaderModule({
             code: `
-                @fragment
-                fn main(@location(0) color: vec3f) -> @location(0) vec4f {
-                  return vec4f(color, 1.0);
-                }
-              `,
+                    @fragment
+                    fn main(@location(0) color: vec3f) -> @location(0) vec4f {
+                        return vec4f(color, 1.0);
+                    }
+                `,
           }),
           entryPoint: 'main',
           targets: [
@@ -220,7 +224,7 @@ export class Topo3DRenderer {
       usage: GPUBufferUsage.VERTEX,
       mappedAtCreation: true,
     });
-
+    console.log('First few vertices:', vertices.slice(0, 9));
     // Flatten here
     const flatVertices = vertices.flatMap((v) => [v.x, v.y, v.z]);
     new Float32Array(this.vertexBuffer.getMappedRange()).set(flatVertices);
@@ -235,6 +239,23 @@ export class Topo3DRenderer {
     const flatColors = colors.flatMap((c) => [c.r, c.g, c.b]);
     new Float32Array(this.colorBuffer.getMappedRange()).set(flatColors);
     this.colorBuffer.unmap();
+  }
+
+  updateViewMatrix(viewMatrix: Mat4) {
+    if (!this.device || !this.uniformBuffer) return;
+
+    this.device.queue.writeBuffer(
+      this.uniformBuffer,
+      0,
+      viewMatrix.elements.buffer,
+      viewMatrix.elements.byteOffset,
+      viewMatrix.elements.byteLength
+    );
+  }
+
+  updateElevationScale(scale: number) {
+    this.elevationScale = scale;
+    this.render();
   }
 
   render() {
