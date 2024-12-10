@@ -1,8 +1,8 @@
-// src/TopoRenderer.ts
-import { ProcessedElevationData } from './utils/elevationProcessor';
-import { createColorBuffer, getColorForElevation } from './utils/colorMapping';
+import { getColorForElevation } from '../utils/colorMapping';
+import { ProcessedElevationData } from '../utils/elevationProcessor';
+// import { createColorBuffer } from '../utils/colorMapping';
 
-export class TopoRenderer {
+export class Topo3DRenderer {
   private canvas: HTMLCanvasElement;
   private context: GPUCanvasContext | null = null;
   private device: GPUDevice | null = null;
@@ -48,22 +48,22 @@ export class TopoRenderer {
         vertex: {
           module: this.device.createShaderModule({
             code: `
-              struct VertexOutput {
-                @builtin(position) position: vec4f,
-                @location(0) color: vec3f,
-              }
-
-              @vertex
-              fn main(
-                @location(0) position: vec2f,
-                @location(1) color: vec3f
-              ) -> VertexOutput {
-                var output: VertexOutput;
-                output.position = vec4f(position, 0.0, 1.0);
-                output.color = color;
-                return output;
-              }
-            `,
+                struct VertexOutput {
+                  @builtin(position) position: vec4f,
+                  @location(0) color: vec3f,
+                }
+  
+                @vertex
+                fn main(
+                  @location(0) position: vec2f,
+                  @location(1) color: vec3f
+                ) -> VertexOutput {
+                  var output: VertexOutput;
+                  output.position = vec4f(position, 0.0, 1.0);
+                  output.color = color;
+                  return output;
+                }
+              `,
           }),
           entryPoint: 'main',
           buffers: [
@@ -94,11 +94,11 @@ export class TopoRenderer {
         fragment: {
           module: this.device.createShaderModule({
             code: `
-              @fragment
-              fn main(@location(0) color: vec3f) -> @location(0) vec4f {
-                return vec4f(color, 1.0);
-              }
-            `,
+                @fragment
+                fn main(@location(0) color: vec3f) -> @location(0) vec4f {
+                  return vec4f(color, 1.0);
+                }
+              `,
           }),
           entryPoint: 'main',
           targets: [

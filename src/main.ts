@@ -2,7 +2,8 @@
 import { loadElevationData } from './utils/loadElevation';
 import { processElevationData } from './utils/elevationProcessor';
 
-import { TopoRenderer } from './TopoRenderer';
+// import { Topo2DRenderer } from './renderer/Topo2DRenderer';
+import { Topo3DRenderer } from './renderer/Topo3DRenderer';
 
 /* elevation.tiff: */
 // https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?
@@ -20,7 +21,9 @@ async function main() {
 
     console.dir(processed, { depth: true });
 
-    const renderer = new TopoRenderer('topoCanvas');
+    // const renderer2D = new Topo2DRenderer('topoCanvas2D');
+    // const renderer3D = new Topo3DRenderer('topoCanvas3D');
+    const renderer = new Topo3DRenderer('topoCanvas');
     const initialized = await renderer.initialize();
 
     if (initialized) {
