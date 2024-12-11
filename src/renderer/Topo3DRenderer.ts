@@ -117,7 +117,7 @@ export class Topo3DRenderer {
                     
                     output.position = vec4f(
                         position.x,
-                        -position.y + position.z * uniforms.elevationScale,
+                        position.y + position.z * uniforms.elevationScale,
                         0.5,
                         1.0
                     );

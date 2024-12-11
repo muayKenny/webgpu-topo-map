@@ -1,7 +1,12 @@
+/* 
+Old camera code that I ended up not using - turns out doing the height displacement 
+directly in the shader was way simpler than messing with all these view matrices. 
+Keeping this around just in case we want to do something fancier with camera angles later.
+*/
+
 export interface Mat4 {
   elements: Float32Array;
 }
-
 export const createLookAtMatrix = (
   eye: [number, number, number], // Camera position
   target: [number, number, number], // Look-at point
@@ -43,13 +48,11 @@ export const createLookAtMatrix = (
   return { elements };
 };
 
-// Normalize a vector
 const normalize = (v: [number, number, number]): [number, number, number] => {
   const length = Math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2);
   return [v[0] / length, v[1] / length, v[2] / length];
 };
 
-// Compute the cross product of two vectors
 const cross = (
   a: [number, number, number],
   b: [number, number, number]
@@ -61,7 +64,6 @@ const cross = (
   ];
 };
 
-// Compute the dot product of two vectors
 const dot = (
   a: [number, number, number],
   b: [number, number, number]
