@@ -2,6 +2,8 @@
 
 Renders elevation data from TIFF files using WebGPU. Built from scratch with no graphics libraries.
 
+![Topographic Map Visualization](/assets/topo-map-screenshot.png)
+
 ## Run it
 
 ```bash
