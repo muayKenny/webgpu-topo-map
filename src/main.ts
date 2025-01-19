@@ -1,7 +1,7 @@
 import { loadElevationData } from './utils/loadElevation';
 import { processElevationData } from './utils/elevationProcessor';
 
-import { Topo2DRenderer } from './renderer/Topo2DRenderer';
+import { Topo2DRenderer } from './2d/Topo2DRenderer';
 import { Topo3DRenderer } from './renderer/Topo3DRenderer';
 
 /* elevation.tiff: */
