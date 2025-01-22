@@ -3,6 +3,7 @@ import { processElevationData } from './utils/elevationProcessor';
 
 import { Topo2DRenderer } from './2d/Topo2DRenderer';
 import { Topo3DRenderer } from './renderer/Topo3DRenderer';
+import { MeshGenerator } from './renderer/geometry/MeshGenerator';
 
 /* elevation.tiff: */
 // https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?
@@ -32,7 +33,8 @@ async function main() {
         currentRenderer = new Topo2DRenderer('topoCanvas');
         elevationControl.style.display = 'none';
       } else {
-        currentRenderer = new Topo3DRenderer('topoCanvas');
+        const meshGenerator = new MeshGenerator(2);
+        currentRenderer = new Topo3DRenderer('topoCanvas', meshGenerator);
         elevationControl.style.display = 'block';
       }
 
@@ -74,9 +76,9 @@ async function main() {
       updateButtons('3D');
     });
 
-    // Initialize with 2D view by default
-    await initializeRenderer('2D');
-    updateButtons('2D');
+    // Initialize with 3D view by default
+    await initializeRenderer('3D');
+    updateButtons('3D');
   } catch (error) {
     console.error('Error loading elevation data:', error);
   }

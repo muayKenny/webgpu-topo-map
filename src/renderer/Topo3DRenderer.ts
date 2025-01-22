@@ -1,5 +1,6 @@
-import { getColorForElevation } from '../utils/colorMapping';
 import { ProcessedElevationData } from '../utils/elevationProcessor';
+
+import { MeshGenerator } from './geometry/MeshGenerator';
 
 import {
   Vec3Array,
@@ -32,12 +33,14 @@ export class Topo3DRenderer {
   private diffuseStrength: number = 0.7;
   private specularStrength: number = 0.3;
   private shininess: number = 32.0;
+  private meshGenerator: MeshGenerator;
 
-  constructor(canvasId: string) {
+  constructor(canvasId: string, meshGenerator: MeshGenerator) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     if (!this.canvas) {
       throw new Error(`Canvas with id ${canvasId} not found`);
     }
+    this.meshGenerator = meshGenerator;
   }
 
   async initialize(): Promise<boolean> {
@@ -243,51 +246,6 @@ export class Topo3DRenderer {
     }
   }
 
-  private calculateNormals(
-    vertices: Vec3Array,
-    width: number,
-    height: number
-  ): Float32Array {
-    const normals: number[] = [];
-
-    for (let y = 0; y < height - 1; y++) {
-      for (let x = 0; x < width - 1; x++) {
-        // Calculate normals for each vertex using cross product of adjacent edges
-        const p0 = vertices[y * width + x];
-        const p1 = vertices[y * width + (x + 1)];
-        const p2 = vertices[(y + 1) * width + x];
-
-        const edge1 = {
-          x: p1.x - p0.x,
-          y: p1.y - p0.y,
-          z: p1.z - p0.z,
-        };
-
-        const edge2 = {
-          x: p2.x - p0.x,
-          y: p2.y - p0.y,
-          z: p2.z - p0.z,
-        };
-
-        // Cross product
-        const normal = {
-          x: edge1.y * edge2.z - edge1.z * edge2.y,
-          y: edge1.z * edge2.x - edge1.x * edge2.z,
-          z: edge1.x * edge2.y - edge1.y * edge2.x,
-        };
-
-        // Normalize
-        const length = Math.sqrt(
-          normal.x * normal.x + normal.y * normal.y + normal.z * normal.z
-        );
-
-        normals.push(normal.x / length, normal.y / length, normal.z / length);
-      }
-    }
-
-    return new Float32Array(normals);
-  }
-
   private calculateVertexNormal(
     x: number,
     y: number,
@@ -318,161 +276,46 @@ export class Topo3DRenderer {
     return createVec3(-dx / length, -dy / length, 1 / length);
   }
 
-  setupGeometry(data: ProcessedElevationData) {
+  setupGeometry(processed: ProcessedElevationData) {
     if (!this.device) return;
 
-    this.dimensions = {
-      width: data.dimensions.width * this.tessellationFactor,
-      height: data.dimensions.height * this.tessellationFactor,
-    };
+    const { vertices, colors, normals, vertexCount } =
+      this.meshGenerator.generateMesh(
+        processed.normalizedElevations,
+        processed.dimensions.width,
+        processed.dimensions.height
+      );
 
-    const width = this.dimensions.width;
-    const height = this.dimensions.height;
+    this.vertexCount = vertexCount;
 
-    // Create higher resolution mesh by interpolating between points
-    const interpolatedElevations = this.interpolateElevations(
-      Array.from(data.normalizedElevations),
-      data.dimensions.width,
-      data.dimensions.height,
-      width,
-      height
-    );
-
-    const vertices: Vec3Array = [];
-    const colors: ColorArray = [];
-    const normals: Vec3Array = [];
-
-    // Each quad becomes 2 triangles (6 vertices)
-    this.vertexCount = 6 * (width - 1) * (height - 1);
-
-    for (let y = 0; y < height - 1; y++) {
-      for (let x = 0; x < width - 1; x++) {
-        const x1 = (x / (width - 1)) * 2 - 1;
-        const x2 = ((x + 1) / (width - 1)) * 2 - 1;
-        const y1 = (y / (height - 1)) * 2 - 1;
-        const y2 = ((y + 1) / (height - 1)) * 2 - 1;
-
-        // Get elevation values for the quad corners
-        const elevation1 = interpolatedElevations[y * width + x];
-        const elevation2 = interpolatedElevations[y * width + (x + 1)];
-        const elevation3 = interpolatedElevations[(y + 1) * width + x];
-        const elevation4 = interpolatedElevations[(y + 1) * width + (x + 1)];
-
-        const quad: QuadVertices = {
-          topLeft: createMeshVertex(
-            createVec3(x1, y1, elevation1),
-            getColorForElevation(elevation1)
-          ),
-          topRight: createMeshVertex(
-            createVec3(x2, y1, elevation2),
-            getColorForElevation(elevation2)
-          ),
-          bottomLeft: createMeshVertex(
-            createVec3(x1, y2, elevation3),
-            getColorForElevation(elevation3)
-          ),
-          bottomRight: createMeshVertex(
-            createVec3(x2, y2, elevation4),
-            getColorForElevation(elevation4)
-          ),
-        };
-
-        const triangleVertices = quadToTriangles(quad);
-        triangleVertices.forEach((vertex) => {
-          vertices.push(vertex.position);
-          colors.push(vertex.color);
-        });
-
-        const normal = this.calculateVertexNormal(
-          x,
-          y,
-          width,
-          height,
-          interpolatedElevations
-        );
-        // Push the same normal for all vertices in the quad (6 times for 2 triangles)
-        for (let i = 0; i < 6; i++) {
-          normals.push(normal);
-        }
-      }
-    }
-
-    // Create and set up buffers
+    // Create GPU buffers
     this.vertexBuffer = this.device.createBuffer({
-      size: vertices.length * 3 * 4,
+      size: vertices.byteLength,
       usage: GPUBufferUsage.VERTEX,
       mappedAtCreation: true,
     });
-
-    const flatVertices = vertices.flatMap((v) => [v.x, v.y, v.z]);
-    new Float32Array(this.vertexBuffer.getMappedRange()).set(flatVertices);
+    new Float32Array(this.vertexBuffer.getMappedRange()).set(vertices);
     this.vertexBuffer.unmap();
 
     this.colorBuffer = this.device.createBuffer({
-      size: colors.length * 3 * 4,
+      size: colors.byteLength,
       usage: GPUBufferUsage.VERTEX,
       mappedAtCreation: true,
     });
-
-    const flatColors = colors.flatMap((c) => [c.r, c.g, c.b]);
-    new Float32Array(this.colorBuffer.getMappedRange()).set(flatColors);
+    new Float32Array(this.colorBuffer.getMappedRange()).set(colors);
     this.colorBuffer.unmap();
 
+    console.log('normals: ', normals.length, 'verts: ', vertices.length);
+
     this.normalBuffer = this.device.createBuffer({
-      size: normals.length * 3 * 4,
+      size: normals.byteLength,
       usage: GPUBufferUsage.VERTEX,
       mappedAtCreation: true,
     });
-
-    const flatNormals = normals.flatMap((n) => [n.x, n.y, n.z]);
-    new Float32Array(this.normalBuffer.getMappedRange()).set(flatNormals);
+    new Float32Array(this.normalBuffer.getMappedRange()).set(normals);
     this.normalBuffer.unmap();
 
-    console.log('Setup complete:', {
-      vertexCount: this.vertexCount,
-      vertices: vertices.length,
-      colors: colors.length,
-      normals: normals.length,
-    });
-  }
-
-  private interpolateElevations(
-    originalData: number[],
-    originalWidth: number,
-    originalHeight: number,
-    newWidth: number,
-    newHeight: number
-  ): number[] {
-    const interpolated: number[] = new Array(newWidth * newHeight);
-
-    for (let y = 0; y < newHeight; y++) {
-      for (let x = 0; x < newWidth; x++) {
-        const origX = (x * (originalWidth - 1)) / (newWidth - 1);
-        const origY = (y * (originalHeight - 1)) / (newHeight - 1);
-
-        const x1 = Math.floor(origX);
-        const x2 = Math.min(x1 + 1, originalWidth - 1);
-        const y1 = Math.floor(origY);
-        const y2 = Math.min(y1 + 1, originalHeight - 1);
-
-        const fx = origX - x1;
-        const fy = origY - y1;
-
-        // Bilinear interpolation
-        const v11 = originalData[y1 * originalWidth + x1];
-        const v12 = originalData[y1 * originalWidth + x2];
-        const v21 = originalData[y2 * originalWidth + x1];
-        const v22 = originalData[y2 * originalWidth + x2];
-
-        interpolated[y * newWidth + x] =
-          v11 * (1 - fx) * (1 - fy) +
-          v12 * fx * (1 - fy) +
-          v21 * (1 - fx) * fy +
-          v22 * fx * fy;
-      }
-    }
-
-    return interpolated;
+    console.log('Geometry setup complete with', vertexCount, 'vertices');
   }
 
   updateElevationScale(scale: number) {
