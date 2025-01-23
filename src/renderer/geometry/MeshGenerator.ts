@@ -8,6 +8,7 @@ interface MeshData {
   vertexCount: number; // Number of vertices in the mesh
 }
 
+// Mesh Factory
 export class MeshGenerator {
   private tessellationFactor: number;
 
@@ -64,24 +65,6 @@ export class MeshGenerator {
           [0, 1, 2], // Triangle 1
           [1, 3, 2], // Triangle 2
         ];
-
-        // for (const indices of triangleIndices) {
-        //   // Add vertices and colors for the triangle
-        //   indices.forEach((i) => {
-        //     const vertex = quadVertices[i];
-        //     vertices.push(vertex.x, vertex.y, vertex.z);
-        //     const color = getColorForElevation(vertex.z);
-        //     colors.push(color.r, color.g, color.b);
-        //   });
-
-        //   // Calculate and add normals (simple cross product)
-        //   const normal = this.calculateNormal(
-        //     quadVertices[indices[0]],
-        //     quadVertices[indices[1]],
-        //     quadVertices[indices[2]]
-        //   );
-        //   normals.push(normal.x, normal.y, normal.z);
-        // }
 
         for (const indices of triangleIndices) {
           // Calculate the normal for the triangle

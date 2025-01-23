@@ -1,34 +1,28 @@
 import { ProcessedElevationData } from '../utils/elevationProcessor';
 
 import { MeshGenerator } from './geometry/MeshGenerator';
+import { PipelineBuilder } from './pipeline/Pipeline';
 
-import {
-  Vec3Array,
-  ColorArray,
-  QuadVertices,
-  createVec3,
-  quadToTriangles,
-  createMeshVertex,
-  Vec3,
-} from './utils3D';
+import vertexShader from './pipeline/vertex.wgsl?raw';
+import fragmentShader from './pipeline/fragment.wgsl?raw';
 
 export class Topo3DRenderer {
   private canvas: HTMLCanvasElement;
   private context: GPUCanvasContext | null = null;
   private device: GPUDevice | null = null;
   private pipeline: GPURenderPipeline | null = null;
+  private vertexShader: string;
+  private fragmentShader: string;
   private vertexBuffer: GPUBuffer | null = null;
   private colorBuffer: GPUBuffer | null = null;
   private normalBuffer: GPUBuffer | null = null;
   private uniformBuffer: GPUBuffer | null = null;
   private bindGroup: GPUBindGroup | null = null;
-  private dimensions: { width: number; height: number } | null = null;
   private vertexCount: number = 0;
   private elevationScale: number = 0.1;
 
   // New parameters for enhanced visuals
-  private useNormalMapping: boolean = true;
-  private tessellationFactor: number = 2; // Subdivide each quad into smaller pieces
+  // private useNormalMapping: boolean = true;
   private ambientLight: number = 0.2;
   private diffuseStrength: number = 0.7;
   private specularStrength: number = 0.3;
@@ -36,6 +30,8 @@ export class Topo3DRenderer {
   private meshGenerator: MeshGenerator;
 
   constructor(canvasId: string, meshGenerator: MeshGenerator) {
+    this.vertexShader = vertexShader;
+    this.fragmentShader = fragmentShader;
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     if (!this.canvas) {
       throw new Error(`Canvas with id ${canvasId} not found`);
@@ -80,7 +76,6 @@ export class Topo3DRenderer {
 
       this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData);
 
-      // Create bind group layout and pipeline layout
       const bindGroupLayout = this.device.createBindGroupLayout({
         entries: [
           {
@@ -89,10 +84,6 @@ export class Topo3DRenderer {
             buffer: { type: 'uniform' },
           },
         ],
-      });
-
-      const pipelineLayout = this.device.createPipelineLayout({
-        bindGroupLayouts: [bindGroupLayout],
       });
 
       this.bindGroup = this.device.createBindGroup({
@@ -105,175 +96,18 @@ export class Topo3DRenderer {
         ],
       });
 
-      // Create the render pipeline with corrected vertex layout
-      this.pipeline = this.device.createRenderPipeline({
-        layout: pipelineLayout,
-        vertex: {
-          module: this.device.createShaderModule({
-            code: `
-              struct Uniforms {
-                elevationScale: f32,
-                ambientLight: f32,
-                diffuseStrength: f32,
-                specularStrength: f32,
-                shininess: f32,
-              }
-              @binding(0) @group(0) var<uniform> uniforms: Uniforms;
-
-              struct VertexOutput {
-                @builtin(position) position: vec4f,
-                @location(0) color: vec3f,
-                @location(1) worldPos: vec3f,
-                @location(2) normal: vec3f,
-              }
-
-              @vertex
-              fn main(
-                @location(0) position: vec3f,
-                @location(1) color: vec3f,
-                @location(2) normal: vec3f,
-              ) -> VertexOutput {
-                var output: VertexOutput;
-                let worldPos = vec3f(
-                  position.x,
-                  position.y + position.z * uniforms.elevationScale,
-                  position.z * uniforms.elevationScale
-                );
-                
-                output.position = vec4f(worldPos, 1.0);
-                output.color = color;
-                output.worldPos = worldPos;
-                output.normal = normalize(normal);
-                return output;
-              }
-            `,
-          }),
-          entryPoint: 'main',
-          buffers: [
-            {
-              // Vertex positions
-              arrayStride: 12, // 3 floats * 4 bytes
-              attributes: [
-                {
-                  shaderLocation: 0,
-                  offset: 0,
-                  format: 'float32x3',
-                },
-              ],
-            },
-            {
-              // Colors
-              arrayStride: 12, // 3 floats * 4 bytes
-              attributes: [
-                {
-                  shaderLocation: 1,
-                  offset: 0,
-                  format: 'float32x3',
-                },
-              ],
-            },
-            {
-              // Normals
-              arrayStride: 12, // 3 floats * 4 bytes
-              attributes: [
-                {
-                  shaderLocation: 2,
-                  offset: 0,
-                  format: 'float32x3',
-                },
-              ],
-            },
-          ],
-        },
-        fragment: {
-          module: this.device.createShaderModule({
-            code: `
-              struct Uniforms {
-                elevationScale: f32,
-                ambientLight: f32,
-                diffuseStrength: f32,
-                specularStrength: f32,
-                shininess: f32,
-              }
-              @binding(0) @group(0) var<uniform> uniforms: Uniforms;
-
-              @fragment
-              fn main(
-                @location(0) color: vec3f,
-                @location(1) worldPos: vec3f,
-                @location(2) normal: vec3f,
-              ) -> @location(0) vec4f {
-                let lightPos = vec3f(2.0, 2.0, 4.0);
-                let viewPos = vec3f(0.0, 0.0, 5.0);
-                
-                // Ambient
-                let ambient = uniforms.ambientLight * color;
-                
-                // Diffuse
-                let lightDir = normalize(lightPos - worldPos);
-                let diff = max(dot(normal, lightDir), 0.0);
-                let diffuse = uniforms.diffuseStrength * diff * color;
-                
-                // Specular
-                let viewDir = normalize(viewPos - worldPos);
-                let reflectDir = reflect(-lightDir, normal);
-                let spec = pow(max(dot(viewDir, reflectDir), 0.0), uniforms.shininess);
-                let specular = uniforms.specularStrength * spec * vec3f(1.0);
-                
-                let result = ambient + diffuse + specular;
-                return vec4f(result, 1.0);
-              }
-            `,
-          }),
-          entryPoint: 'main',
-          targets: [{ format: canvasFormat }],
-        },
-        primitive: {
-          topology: 'triangle-list',
-          cullMode: 'back',
-        },
-        depthStencil: {
-          depthWriteEnabled: true,
-          depthCompare: 'less',
-          format: 'depth24plus',
-        },
-      });
+      const pipelineBuilder = new PipelineBuilder(this.device, canvasFormat);
+      this.pipeline = pipelineBuilder
+        .setPipelineLayout(bindGroupLayout)
+        .setVertexShader(this.vertexShader)
+        .setFragmentShader(this.fragmentShader)
+        .build();
 
       return true;
     } catch (error) {
       console.error('Failed to initialize WebGPU:', error);
       return false;
     }
-  }
-
-  private calculateVertexNormal(
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    elevations: number[]
-  ): Vec3 {
-    // Get neighboring elevation values
-    const left =
-      x > 0 ? elevations[y * width + (x - 1)] : elevations[y * width + x];
-    const right =
-      x < width - 1
-        ? elevations[y * width + (x + 1)]
-        : elevations[y * width + x];
-    const top =
-      y > 0 ? elevations[(y - 1) * width + x] : elevations[y * width + x];
-    const bottom =
-      y < height - 1
-        ? elevations[(y + 1) * width + x]
-        : elevations[y * width + x];
-
-    // Calculate gradient in x and y directions
-    const dx = (right - left) / 2;
-    const dy = (bottom - top) / 2;
-
-    // Create normal vector (-dx, -dy, 1) and normalize it
-    const length = Math.sqrt(dx * dx + dy * dy + 1);
-    return createVec3(-dx / length, -dy / length, 1 / length);
   }
 
   setupGeometry(processed: ProcessedElevationData) {
