@@ -24,7 +24,7 @@ fn main(
     let worldPos = vec3f(
         position.x,
         position.y + position.z * uniforms.elevationScale,
-        position.z * uniforms.elevationScale
+        position.z 
     );
 
     output.position = vec4f(worldPos, 1.0);

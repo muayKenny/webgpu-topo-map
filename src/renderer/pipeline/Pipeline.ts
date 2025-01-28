@@ -1,9 +1,10 @@
 export class PipelineBuilder {
-  private device: GPUDevice;
+  private readonly device: GPUDevice;
+  private readonly canvasFormat: GPUTextureFormat;
+
   private pipelineLayout: GPUPipelineLayout | null = null;
   private vertexShader: GPUShaderModule | null = null;
   private fragmentShader: GPUShaderModule | null = null;
-  private canvasFormat: GPUTextureFormat;
 
   constructor(device: GPUDevice, canvasFormat: GPUTextureFormat) {
     this.device = device;
