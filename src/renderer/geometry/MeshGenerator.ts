@@ -1,5 +1,6 @@
 import { getColorForElevation } from '../../utils/colorMapping';
 import { Vec3 } from '../utils3D';
+import wasm, { wasmReady } from '../../wasm';
 
 interface MeshData {
   vertices: Float32Array; // Flattened array of vertex positions (x, y, z)
@@ -11,16 +12,55 @@ interface MeshData {
 // Mesh Factory
 export class MeshGenerator {
   private tessellationFactor: number;
+  private wasmEnabled: boolean;
 
-  constructor(tessellationFactor: number = 1) {
+  constructor(tessellationFactor: number = 1, wasmEnabled: boolean = true) {
     this.tessellationFactor = tessellationFactor;
+    this.wasmEnabled = wasmEnabled;
   }
 
-  generateMesh(
+  async generateMesh(
     elevations: Float32Array, // 1D array of elevation values
     width: number, // Original width of elevation data
     height: number // Original height of elevation data
-  ): MeshData {
+  ): Promise<MeshData> {
+    let vertices: number[], colors: number[], normals: number[];
+
+    if (!this.wasmEnabled) {
+      ({ vertices, colors, normals } = this.javascriptComputeMesh(
+        elevations,
+        width,
+        height
+      ));
+    } else {
+      const instance = await wasmReady;
+      console.log(await instance.add_numbers(10, 5));
+
+      ({ vertices, colors, normals } = this.javascriptComputeMesh(
+        elevations,
+        width,
+        height
+      ));
+      // ({ vertices, colors, normals } = this.wasmComputeMesh(
+      //   elevations,
+      //   width,
+      //   height
+      // ));
+    }
+
+    return {
+      vertices: new Float32Array(vertices),
+      colors: new Float32Array(colors),
+      normals: new Float32Array(normals),
+      vertexCount: vertices.length / 3,
+    };
+  }
+
+  private javascriptComputeMesh(
+    elevations: Float32Array,
+    width: number,
+    height: number
+  ) {
     // Calculate dimensions after tessellation
     const newWidth = width * this.tessellationFactor;
     const newHeight = height * this.tessellationFactor;
@@ -87,13 +127,7 @@ export class MeshGenerator {
         }
       }
     }
-
-    return {
-      vertices: new Float32Array(vertices),
-      colors: new Float32Array(colors),
-      normals: new Float32Array(normals),
-      vertexCount: vertices.length / 3,
-    };
+    return { vertices, colors, normals };
   }
 
   private interpolateElevations(

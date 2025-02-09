@@ -12,6 +12,18 @@ build/
 .env.test.local
 .env.production.local
 
+# WebAssembly (wasm-pack build output)
+wasm/pkg/
+wasm/target/
+wasm/Cargo.lock
+
+# Rust-specific files
+Cargo.lock
+target/
+
+# TypeScript build artifacts
+*.tsbuildinfo
+
 # IDE files
 .vscode/
 .idea/

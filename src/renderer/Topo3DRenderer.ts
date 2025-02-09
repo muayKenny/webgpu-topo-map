@@ -110,11 +110,11 @@ export class Topo3DRenderer {
     }
   }
 
-  setupGeometry(processed: ProcessedElevationData) {
+  async setupGeometry(processed: ProcessedElevationData) {
     if (!this.device) return;
 
     const { vertices, colors, normals, vertexCount } =
-      this.meshGenerator.generateMesh(
+      await this.meshGenerator.generateMesh(
         processed.normalizedElevations,
         processed.dimensions.width,
         processed.dimensions.height
@@ -171,6 +171,17 @@ export class Topo3DRenderer {
   }
 
   render() {
+    if (!this.device) console.warn('🚨 Missing: GPU device');
+    if (!this.context) console.warn('🚨 Missing: GPU context');
+    if (!this.pipeline) console.warn('🚨 Missing: Render pipeline');
+    if (!this.vertexBuffer) console.warn('🚨 Missing: Vertex buffer');
+    if (!this.colorBuffer) console.warn('🚨 Missing: Color buffer');
+    if (!this.normalBuffer) console.warn('🚨 Missing: Normal buffer');
+    if (!this.bindGroup) console.warn('🚨 Missing: Bind group');
+    if (this.vertexCount === 0)
+      console.warn('🚨 Missing: Vertices (vertexCount === 0)');
+
+    // 🚀 If any resource is missing, return early
     if (
       !this.device ||
       !this.context ||
@@ -181,7 +192,7 @@ export class Topo3DRenderer {
       !this.bindGroup ||
       this.vertexCount === 0
     ) {
-      console.warn('Missing required resources for rendering');
+      console.warn('⚠️ Rendering aborted due to missing resources.');
       return;
     }
 

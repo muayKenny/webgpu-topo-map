@@ -33,7 +33,7 @@ async function main() {
         currentRenderer = new Topo2DRenderer('topoCanvas');
         elevationControl.style.display = 'none';
       } else {
-        const meshGenerator = new MeshGenerator(2);
+        const meshGenerator = new MeshGenerator(2, true);
         currentRenderer = new Topo3DRenderer('topoCanvas', meshGenerator);
         elevationControl.style.display = 'block';
       }
@@ -41,7 +41,7 @@ async function main() {
       const initialized = await currentRenderer.initialize();
       if (initialized) {
         console.log(`${type} renderer initialized successfully`);
-        currentRenderer.setupGeometry(processed);
+        await currentRenderer.setupGeometry(processed);
         currentRenderer.render();
         return true;
       }
