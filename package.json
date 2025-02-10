@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "WebGPU Topographic Map Renderer",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "build:wasm": "cd wasm && wasm-pack build --target web",
+    "dev": "npm run build:wasm && vite",
+    "build": "npm run build:wasm && tsc && vite build",
     "serve": "vite preview"
   },
   "devDependencies": {
