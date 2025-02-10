@@ -183,7 +183,7 @@ pub fn mesh_compute(
                     let vertex_z = quad_vertices[i].2;
                     
                     let color: RGB = get_color_for_elevation(vertex_z);
-                    colors.extend_from_slice(&[color.r, color.b, color.g]); 
+                    colors.extend_from_slice(&[color.r, color.g, color.b]);
                 }
             }
         }

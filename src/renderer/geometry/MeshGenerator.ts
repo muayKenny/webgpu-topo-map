@@ -27,14 +27,22 @@ export class MeshGenerator {
     let meshData: MeshData;
 
     if (this.wasmEnabled) {
+      const start = performance.now();
       meshData = await mesh_compute(
         elevations,
         width,
         height,
         this.tessellationFactor
       );
+      const end = performance.now();
+      console.log(
+        `🔥 WASM Mesh Generation Time: ${(end - start).toFixed(4)}ms`
+      );
     } else {
+      const start = performance.now();
       meshData = this.javascriptComputeMesh(elevations, width, height);
+      const end = performance.now();
+      console.log(`🟢 JS Mesh Generation Time: ${(end - start).toFixed(4)}ms`);
     }
 
     return meshData;
