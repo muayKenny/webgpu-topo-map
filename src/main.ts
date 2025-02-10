@@ -33,7 +33,8 @@ async function main() {
         currentRenderer = new Topo2DRenderer('topoCanvas');
         elevationControl.style.display = 'none';
       } else {
-        const meshGenerator = new MeshGenerator(2, true);
+        const enableWasmComputing = true;
+        const meshGenerator = new MeshGenerator(2, enableWasmComputing);
         currentRenderer = new Topo3DRenderer('topoCanvas', meshGenerator);
         elevationControl.style.display = 'block';
       }

@@ -1,12 +1,12 @@
 import { getColorForElevation } from '../../utils/colorMapping';
 import { Vec3 } from '../utils3D';
-import wasm, { wasmReady } from '../../wasm';
+import { mesh_compute } from '../../wasm';
 
-interface MeshData {
-  vertices: Float32Array; // Flattened array of vertex positions (x, y, z)
-  colors: Float32Array; // Flattened array of color values (r, g, b)
-  normals: Float32Array; // Flattened array of normal vectors (x, y, z)
-  vertexCount: number; // Number of vertices in the mesh
+export interface MeshData {
+  vertices: Float32Array;
+  colors: Float32Array;
+  normals: Float32Array;
+  vertexCount: number;
 }
 
 // Mesh Factory
@@ -24,36 +24,20 @@ export class MeshGenerator {
     width: number, // Original width of elevation data
     height: number // Original height of elevation data
   ): Promise<MeshData> {
-    let vertices: number[], colors: number[], normals: number[];
+    let meshData: MeshData;
 
-    if (!this.wasmEnabled) {
-      ({ vertices, colors, normals } = this.javascriptComputeMesh(
+    if (this.wasmEnabled) {
+      meshData = await mesh_compute(
         elevations,
         width,
-        height
-      ));
+        height,
+        this.tessellationFactor
+      );
     } else {
-      const instance = await wasmReady;
-      console.log(await instance.add_numbers(10, 5));
-
-      ({ vertices, colors, normals } = this.javascriptComputeMesh(
-        elevations,
-        width,
-        height
-      ));
-      // ({ vertices, colors, normals } = this.wasmComputeMesh(
-      //   elevations,
-      //   width,
-      //   height
-      // ));
+      meshData = this.javascriptComputeMesh(elevations, width, height);
     }
 
-    return {
-      vertices: new Float32Array(vertices),
-      colors: new Float32Array(colors),
-      normals: new Float32Array(normals),
-      vertexCount: vertices.length / 3,
-    };
+    return meshData;
   }
 
   private javascriptComputeMesh(
@@ -127,7 +111,13 @@ export class MeshGenerator {
         }
       }
     }
-    return { vertices, colors, normals };
+
+    return {
+      vertices: new Float32Array(vertices),
+      colors: new Float32Array(colors),
+      normals: new Float32Array(normals),
+      vertexCount: vertices.length / 3,
+    };
   }
 
   private interpolateElevations(
@@ -190,116 +180,3 @@ export class MeshGenerator {
     return { x: normal.x / length, y: normal.y / length, z: normal.z / length };
   }
 }
-// this.dimensions = {
-//   width: data.dimensions.width * this.tessellationFactor,
-//   height: data.dimensions.height * this.tessellationFactor,
-// };
-
-// const width = this.dimensions.width;
-// const height = this.dimensions.height;
-
-// // Create higher resolution mesh by interpolating between points
-// const interpolatedElevations = this.interpolateElevations(
-//   Array.from(data.normalizedElevations),
-//   data.dimensions.width,
-//   data.dimensions.height,
-//   width,
-//   height
-// );
-
-// const vertices: Vec3Array = [];
-// const colors: ColorArray = [];
-// const normals: Vec3Array = [];
-
-// // Each quad becomes 2 triangles (6 vertices)
-// this.vertexCount = 6 * (width - 1) * (height - 1);
-
-// for (let y = 0; y < height - 1; y++) {
-//   for (let x = 0; x < width - 1; x++) {
-//     const x1 = (x / (width - 1)) * 2 - 1;
-//     const x2 = ((x + 1) / (width - 1)) * 2 - 1;
-//     const y1 = (y / (height - 1)) * 2 - 1;
-//     const y2 = ((y + 1) / (height - 1)) * 2 - 1;
-
-//     // Get elevation values for the quad corners
-//     const elevation1 = interpolatedElevations[y * width + x];
-//     const elevation2 = interpolatedElevations[y * width + (x + 1)];
-//     const elevation3 = interpolatedElevations[(y + 1) * width + x];
-//     const elevation4 = interpolatedElevations[(y + 1) * width + (x + 1)];
-
-//     const quad: QuadVertices = {
-//       topLeft: createMeshVertex(
-//         createVec3(x1, y1, elevation1),
-//         getColorForElevation(elevation1)
-//       ),
-//       topRight: createMeshVertex(
-//         createVec3(x2, y1, elevation2),
-//         getColorForElevation(elevation2)
-//       ),
-//       bottomLeft: createMeshVertex(
-//         createVec3(x1, y2, elevation3),
-//         getColorForElevation(elevation3)
-//       ),
-//       bottomRight: createMeshVertex(
-//         createVec3(x2, y2, elevation4),
-//         getColorForElevation(elevation4)
-//       ),
-//     };
-
-//     const triangleVertices = quadToTriangles(quad);
-//     triangleVertices.forEach((vertex) => {
-//       vertices.push(vertex.position);
-//       colors.push(vertex.color);
-//     });
-
-//     const normal = this.calculateVertexNormal(
-//       x,
-//       y,
-//       width,
-//       height,
-//       interpolatedElevations
-//     );
-//     // Push the same normal for all vertices in the quad (6 times for 2 triangles)
-//     for (let i = 0; i < 6; i++) {
-//       normals.push(normal);
-//     }
-//   }
-// }
-
-// private interpolateElevations(
-// originalData: number[],
-// originalWidth: number,
-// originalHeight: number,
-// newWidth: number,
-// newHeight: number
-// ): number[] {
-// const interpolated: number[] = new Array(newWidth * newHeight);
-
-// for (let y = 0; y < newHeight; y++) {
-//   for (let x = 0; x < newWidth; x++) {
-//     const origX = (x * (originalWidth - 1)) / (newWidth - 1);
-//     const origY = (y * (originalHeight - 1)) / (newHeight - 1);
-
-//     const x1 = Math.floor(origX);
-//     const x2 = Math.min(x1 + 1, originalWidth - 1);
-//     const y1 = Math.floor(origY);
-//     const y2 = Math.min(y1 + 1, originalHeight - 1);
-
-//     const fx = origX - x1;
-//     const fy = origY - y1;
-
-//     // Bilinear interpolation
-//     const v11 = originalData[y1 * originalWidth + x1];
-//     const v12 = originalData[y1 * originalWidth + x2];
-//     const v21 = originalData[y2 * originalWidth + x1];
-//     const v22 = originalData[y2 * originalWidth + x2];
-
-//     interpolated[y * newWidth + x] =
-//       v11 * (1 - fx) * (1 - fy) +
-//       v12 * fx * (1 - fy) +
-//       v21 * (1 - fx) * fy +
-//       v22 * fx * fy;
-//   }
-// }
-
-// return interpolated;
