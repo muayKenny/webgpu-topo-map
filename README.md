@@ -30,6 +30,7 @@ npm run dev
 - Default view showcases elevation data around **Harrisburg, Pennsylvania**.
 - Uses a 256x256 elevation grid stored in a TIFF file. (Supports swapping for other TIFF files of the same size.)
 - Built with **Vite** and **TypeScript**.
+- **New Feature:** Terrain Mesh Generation with **WASM Compute**.
 
 ---
 
@@ -43,32 +44,27 @@ npm run dev
 
 ---
 
-## Roadmap
+## WASM Terrain Generation
 
-### **Refactor: Modular Design**
+The original **mesh generation** was written in JavaScript. To improve efficiency, the terrain generation logic was rewritten in **Rust** and compiled to **WebAssembly (WASM)** using `wasm-bindgen` to expose Rust functions\*\* to JavaScript.
 
-The codebase is undergoing a refactor to improve maintainability and scalability, recently completed:
+This optimization allowed some of the more computationally expensive operations—such as mesh interpolation, vertex & normal generation, and color mapping—to run in **Rust instead of JavaScript**, making it about **3x faster**!
 
-- **PipelineBuilder Class:**
-  - Handles low-level GPU pipeline configuration, separating concerns from rendering logic.
-- **MeshGenerator Class:**
-  - Processes elevation data into a structured triangle mesh with vertices, normals, and colors.
+### **Performance Gains**
 
-### **Parameterizing Rendering Methods**
+| Method      | Compute Time |
+| ----------- | ------------ |
+| JavaScript  | ~144ms       |
+| WASM (Rust) | ~50ms        |
+| **Speedup** | ~3x faster   |
 
-- Introduce configurable rendering methods for smooth shading, flat shading, and other techniques.
-- Parameterize:
-  - Elevation scale adjustments.
-  - Mesh resolution and tessellation settings.
-  - Color-mapping modes for terrain visualization.
-
-### **Interactive Controls with React + Zustand**
-
-- Replace existing static controls with a **React-based UI** for better interactivity and scalability.
-- Use **Zustand** for state management:
-  - Elevation scale adjustment.
-  - Shading method selection (e.g., flat vs. smooth).
-  - Toggle between 2D and 3D views.
-  - Loading and displaying custom TIFF files.
+Measured in Chrome devtools with an m3 max.
 
 ---
+
+## Next Steps
+
+- **Expand visual and user-centric features**, such as more interactive controls, dynamic lighting, and real-time terrain modifications.
+- Maybe look into **SIMD optimizations in Rust** or **compute shaders** to further improve performance.
+
+For now, this optimization makes terrain mesh generation **three times faster**, making it feasible to generate high-resolution terrain in real time without major slowdowns.
