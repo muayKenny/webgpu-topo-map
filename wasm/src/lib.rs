@@ -91,6 +91,44 @@ fn calculate_normal(v1: (f32, f32, f32), v2: (f32, f32, f32), v3: (f32, f32, f32
     (normal.0 / length, normal.1 / length, normal.2 / length)
 }
 
+#[derive(Copy, Clone)]
+struct RGB {
+    r: f32,
+    g: f32,
+    b: f32
+}
+
+const TERRAIN_COLORS: [(f32, RGB); 7] = [
+    (0.0, RGB { r: 0.6, g: 0.6, b: 0.95 }), // Light blue for lowest areas
+    (0.1, RGB { r: 0.4, g: 0.8, b: 0.4 }),  // Light green for low lands
+    (0.3, RGB { r: 0.2, g: 0.6, b: 0.2 }),  // Darker green
+    (0.5, RGB { r: 0.8, g: 0.7, b: 0.5 }),  // Light brown
+    (0.7, RGB { r: 0.7, g: 0.55, b: 0.4 }), // Medium brown
+    (0.9, RGB { r: 0.75, g: 0.75, b: 0.75 }), // Gray
+    (1.0, RGB { r: 1.0, g: 1.0, b: 1.0 }),  // White for peaks!
+];
+
+fn get_color_for_elevation(normalized_elevation: f32) -> RGB {
+    for i in 0..TERRAIN_COLORS.len() - 1 {
+        let (stop1, ref color1) = TERRAIN_COLORS[i];
+        let (stop2, ref color2) = TERRAIN_COLORS[i + 1];
+
+        if normalized_elevation >= stop1 && normalized_elevation <= stop2 {
+            let terped_color = (normalized_elevation - stop1) / (stop2 - stop1);
+           
+
+             return RGB {  
+                r: color1.r + (color2.r - color1.r) * terped_color,
+                g: color1.g + (color2.g - color1.g) * terped_color,
+                b: color1.b + (color2.b - color1.b) * terped_color,
+            };
+        }
+    }
+
+    // If nothing matched, return the last color in the array
+    return TERRAIN_COLORS[TERRAIN_COLORS.len() - 1].1;
+}
+
 #[wasm_bindgen]
 pub fn mesh_compute(
     elevations: &[f32],
@@ -142,8 +180,10 @@ pub fn mesh_compute(
                         quad_vertices[i].1,
                         quad_vertices[i].2,
                     ]);
-                    // TODO: Convert `getColorForElevation()` logic into Rust and replace this with actual color values
-                    colors.extend_from_slice(&[1.0, 1.0, 1.0]); // Placeholder white color
+                    let vertex_z = quad_vertices[i].2;
+                    
+                    let color: RGB = get_color_for_elevation(vertex_z);
+                    colors.extend_from_slice(&[color.r, color.b, color.g]); 
                 }
             }
         }
