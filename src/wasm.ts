@@ -2,7 +2,7 @@ import init, * as wasm from '../wasm/pkg/mesh_compute.js';
 import { MeshData } from './renderer/geometry/MeshGenerator.js';
 
 export const wasmReady = init().then(() => {
-  console.log("🚀 WASM wasm'ing up!");
+  // console.log("🚀 WASM wasm'ing up!");
   return wasm;
 });
 

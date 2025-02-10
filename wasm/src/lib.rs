@@ -14,7 +14,7 @@ pub struct MeshComputeData {
 impl MeshComputeData {
     #[wasm_bindgen(getter)]
     pub fn vertices(&self) -> js_sys::Float32Array {
-        Float32Array::from(self.vertices.as_slice()) // ✅ Convert Vec<f32> → Float32Array
+        Float32Array::from(self.vertices.as_slice())
     }
 
     #[wasm_bindgen(getter)]

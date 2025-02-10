@@ -22,12 +22,18 @@
         background-color: #4caf50;
         color: white;
       }
+      #infoMessage {
+        margin-top: 10px;
+        font-size: 14px;
+        color: #555;
+      }
     </style>
   </head>
   <body>
     <div class="controls">
       <button id="render2D">2D View</button>
       <button id="render3D">3D View</button>
+      <button id="wasmToggle">WASM Mesh Generation: ON</button>
       <div id="elevationControl" style="display: none">
         <label for="elevationScale">Elevation Scale:</label>
         <input
@@ -41,7 +47,13 @@
         <span id="scaleValue">0.1</span>
       </div>
     </div>
+
     <canvas id="topoCanvas"></canvas>
+
+    <p id="infoMessage">
+      ℹ️ Check the console to compare WASM vs JavaScript compute times.
+    </p>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

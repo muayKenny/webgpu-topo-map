@@ -20,6 +20,7 @@ async function main() {
     const processed = processElevationData(elevationData);
 
     let currentRenderer: Topo2DRenderer | Topo3DRenderer | null = null;
+    let wasmEnabled = true;
     const elevationControl = document.getElementById(
       'elevationControl'
     ) as HTMLDivElement;
@@ -27,21 +28,25 @@ async function main() {
       'elevationScale'
     ) as HTMLInputElement;
     const scaleValue = document.getElementById('scaleValue') as HTMLSpanElement;
+    const wasmToggleBtn = document.getElementById(
+      'wasmToggle'
+    ) as HTMLButtonElement;
+
+    wasmToggleBtn.classList.add('active');
+    wasmToggleBtn.innerText = 'WASM Mesh Generation: ON';
 
     async function initializeRenderer(type: '2D' | '3D') {
       if (type === '2D') {
         currentRenderer = new Topo2DRenderer('topoCanvas');
         elevationControl.style.display = 'none';
       } else {
-        const enableWasmComputing = false;
-        const meshGenerator = new MeshGenerator(2, enableWasmComputing);
+        const meshGenerator = new MeshGenerator(2, wasmEnabled);
         currentRenderer = new Topo3DRenderer('topoCanvas', meshGenerator);
         elevationControl.style.display = 'block';
       }
 
       const initialized = await currentRenderer.initialize();
       if (initialized) {
-        console.log(`${type} renderer initialized successfully`);
         await currentRenderer.setupGeometry(processed);
         currentRenderer.render();
         return true;
@@ -58,7 +63,24 @@ async function main() {
       btn3D.classList.toggle('active', active === '3D');
     };
 
-    // Handle slider changes
+    wasmToggleBtn.addEventListener('click', async () => {
+      wasmEnabled = !wasmEnabled;
+      wasmToggleBtn.classList.toggle('active', wasmEnabled);
+      wasmToggleBtn.innerText = wasmEnabled
+        ? 'WASM Mesh Generation: ON'
+        : 'WASM Mesh Generation: OFF';
+
+      console.log(
+        `🚀 WASM Compute is now ${wasmEnabled ? 'ENABLED' : 'DISABLED'}`
+      );
+
+      //  Reinitialize renderer to apply change
+      if (currentRenderer instanceof Topo3DRenderer) {
+        await initializeRenderer('3D');
+        updateButtons('3D');
+      }
+    });
+
     scaleSlider.addEventListener('input', () => {
       const scale = parseFloat(scaleSlider.value);
       scaleValue.textContent = scale.toString();

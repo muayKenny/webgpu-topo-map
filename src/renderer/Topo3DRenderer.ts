@@ -139,8 +139,6 @@ export class Topo3DRenderer {
     new Float32Array(this.colorBuffer.getMappedRange()).set(colors);
     this.colorBuffer.unmap();
 
-    console.log('normals: ', normals.length, 'verts: ', vertices.length);
-
     this.normalBuffer = this.device.createBuffer({
       size: normals.byteLength,
       usage: GPUBufferUsage.VERTEX,
@@ -148,8 +146,6 @@ export class Topo3DRenderer {
     });
     new Float32Array(this.normalBuffer.getMappedRange()).set(normals);
     this.normalBuffer.unmap();
-
-    console.log('Geometry setup complete with', vertexCount, 'vertices');
   }
 
   updateElevationScale(scale: number) {
