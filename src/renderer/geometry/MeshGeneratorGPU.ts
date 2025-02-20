@@ -1,6 +1,5 @@
 import { getColorForElevation } from '../../utils/colorMapping';
 import { Vec3 } from '../utils3D';
-import { mesh_compute } from '../../wasm';
 
 export interface MeshData {
   vertices: Float32Array;
@@ -9,50 +8,39 @@ export interface MeshData {
   vertexCount: number;
 }
 
-export enum ComputeMethod {
-  GPU = 'gpu',
-  WASM = 'wasm',
-  JS = 'js',
-}
-
 // Mesh Factory
-export class MeshGenerator {
+export class MeshGeneratorGPU {
   private tessellationFactor: number;
-  private computeMethod: ComputeMethod;
 
-  constructor(tessellationFactor: number = 1, computeMethod: ComputeMethod) {
+  constructor(tessellationFactor: number = 1) {
     this.tessellationFactor = tessellationFactor;
-    this.computeMethod = computeMethod;
   }
 
-  async generateMesh(
-    elevations: Float32Array, // 1D array of elevation values
-    width: number, // Original width of elevation data
-    height: number // Original height of elevation data
-  ): Promise<MeshData | void> {
-    let meshData: MeshData;
+  async createElevationTexture(
+    device: GPUDevice,
+    elevations: Float32Array,
+    width: number,
+    height: number
+  ): Promise<GPUTexture> {
+    // Create GPU texture descriptor
+    const texture = device.createTexture({
+      size: [width, height, 1],
+      format: 'r32float', // Single-channel float texture
+      usage:
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.STORAGE_BINDING,
+    });
 
-    if (this.computeMethod === ComputeMethod.WASM) {
-      const start = performance.now();
-      meshData = await mesh_compute(
-        elevations,
-        width,
-        height,
-        this.tessellationFactor
-      );
-      const end = performance.now();
-      console.log(
-        `🔥 WASM Mesh Generation Time: ${(end - start).toFixed(4)}ms`
-      );
-      return meshData;
-    }
-    if (this.computeMethod === ComputeMethod.JS) {
-      const start = performance.now();
-      meshData = this.javascriptComputeMesh(elevations, width, height);
-      const end = performance.now();
-      console.log(`🟢 JS Mesh Generation Time: ${(end - start).toFixed(4)}ms`);
-      return meshData;
-    }
+    // Upload elevation data to GPU texture
+    device.queue.writeTexture(
+      { texture },
+      elevations, // Raw Float32Array
+      { bytesPerRow: width * 4 }, // 4 bytes per f32
+      [width, height, 1]
+    );
+
+    return texture;
   }
 
   private javascriptComputeMesh(

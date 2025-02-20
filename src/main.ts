@@ -3,7 +3,10 @@ import { processElevationData } from './utils/elevationProcessor';
 
 import { Topo2DRenderer } from './2d/Topo2DRenderer';
 import { Topo3DRenderer } from './renderer/Topo3DRenderer';
-import { MeshGenerator } from './renderer/geometry/MeshGenerator';
+import {
+  ComputeMethod,
+  MeshGenerator,
+} from './renderer/geometry/MeshGenerator';
 
 /* elevation.tiff: */
 // https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?
@@ -20,7 +23,6 @@ async function main() {
     const processed = processElevationData(elevationData);
 
     let currentRenderer: Topo2DRenderer | Topo3DRenderer | null = null;
-    let wasmEnabled = true;
     const elevationControl = document.getElementById(
       'elevationControl'
     ) as HTMLDivElement;
@@ -28,20 +30,30 @@ async function main() {
       'elevationScale'
     ) as HTMLInputElement;
     const scaleValue = document.getElementById('scaleValue') as HTMLSpanElement;
-    const wasmToggleBtn = document.getElementById(
-      'wasmToggle'
-    ) as HTMLButtonElement;
-
-    wasmToggleBtn.classList.add('active');
-    wasmToggleBtn.innerText = 'WASM Mesh Generation: ON';
+    const computeSelector = document.getElementById(
+      'computeMethod'
+    ) as HTMLSelectElement;
 
     async function initializeRenderer(type: '2D' | '3D') {
       if (type === '2D') {
         currentRenderer = new Topo2DRenderer('topoCanvas');
         elevationControl.style.display = 'none';
       } else {
-        const meshGenerator = new MeshGenerator(2, wasmEnabled);
-        currentRenderer = new Topo3DRenderer('topoCanvas', meshGenerator);
+        const selectedMethod = computeSelector.value as ComputeMethod;
+
+        const adapter = await navigator.gpu.requestAdapter();
+        const device = await adapter?.requestDevice();
+        if (!device) {
+          console.error('WebGPU is not supported on this browser.');
+          return;
+        }
+
+        const meshGenerator = new MeshGenerator(2, selectedMethod);
+        currentRenderer = new Topo3DRenderer(
+          'topoCanvas',
+          meshGenerator,
+          device
+        );
         elevationControl.style.display = 'block';
       }
 
@@ -63,22 +75,8 @@ async function main() {
       btn3D.classList.toggle('active', active === '3D');
     };
 
-    wasmToggleBtn.addEventListener('click', async () => {
-      wasmEnabled = !wasmEnabled;
-      wasmToggleBtn.classList.toggle('active', wasmEnabled);
-      wasmToggleBtn.innerText = wasmEnabled
-        ? 'WASM Mesh Generation: ON'
-        : 'WASM Mesh Generation: OFF';
-
-      console.log(
-        `🚀 WASM Compute is now ${wasmEnabled ? 'ENABLED' : 'DISABLED'}`
-      );
-
-      //  Reinitialize renderer to apply change
-      if (currentRenderer instanceof Topo3DRenderer) {
-        await initializeRenderer('3D');
-        updateButtons('3D');
-      }
+    computeSelector.addEventListener('change', async () => {
+      await initializeRenderer('3D');
     });
 
     scaleSlider.addEventListener('input', () => {

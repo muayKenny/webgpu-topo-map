@@ -29,9 +29,14 @@ export class Topo3DRenderer {
   private shininess: number = 32.0;
   private meshGenerator: MeshGenerator;
 
-  constructor(canvasId: string, meshGenerator: MeshGenerator) {
+  constructor(
+    canvasId: string,
+    meshGenerator: MeshGenerator,
+    device: GPUDevice
+  ) {
     this.vertexShader = vertexShader;
     this.fragmentShader = fragmentShader;
+    this.device = device;
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     if (!this.canvas) {
       throw new Error(`Canvas with id ${canvasId} not found`);
@@ -41,16 +46,13 @@ export class Topo3DRenderer {
 
   async initialize(): Promise<boolean> {
     try {
-      const adapter = await navigator.gpu?.requestAdapter();
-      if (!adapter) {
-        throw new Error('No WebGPU adapter found');
-      }
-
-      this.device = await adapter.requestDevice();
       this.context = this.canvas.getContext('webgpu');
 
       if (!this.context) {
         throw new Error('Could not get WebGPU context');
+      }
+      if (!this.device) {
+        throw new Error('Could not get WebGPU device');
       }
 
       const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
