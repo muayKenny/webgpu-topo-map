@@ -35,12 +35,12 @@ async function main() {
     ) as HTMLSelectElement;
 
     async function initializeRenderer(type: '2D' | '3D') {
+      const selectedMethod = computeSelector.value as ComputeMethod;
+
       if (type === '2D') {
         currentRenderer = new Topo2DRenderer('topoCanvas');
         elevationControl.style.display = 'none';
       } else {
-        const selectedMethod = computeSelector.value as ComputeMethod;
-
         const adapter = await navigator.gpu.requestAdapter();
         const device = await adapter?.requestDevice();
         if (!device) {
@@ -61,7 +61,14 @@ async function main() {
 
       const initialized = await currentRenderer.initialize();
       if (initialized) {
-        await currentRenderer.setupGeometry(processed);
+        if (
+          selectedMethod === ComputeMethod.GPU &&
+          currentRenderer instanceof Topo3DRenderer
+        ) {
+          await currentRenderer.setupGeometryGPUCompute(processed);
+        } else {
+          await currentRenderer.setupGeometry(processed);
+        }
         currentRenderer.render();
         return true;
       }

@@ -1,13 +1,13 @@
 import { getColorForElevation } from '../../utils/colorMapping';
 import { Vec3 } from '../utils3D';
 import { mesh_compute } from '../../wasm';
-import { TopoGPUCompute } from '../gpu_compute/TopoGPUCompute';
 
 export interface MeshData {
   vertices: Float32Array;
   colors: Float32Array;
   normals: Float32Array;
   vertexCount: number;
+  computeMethod: ComputeMethod;
 }
 
 export enum ComputeMethod {
@@ -19,26 +19,20 @@ export enum ComputeMethod {
 export class MeshGenerator {
   private tessellationFactor: number;
   private computeMethod: ComputeMethod;
-  private gpuCompute: TopoGPUCompute | null;
 
-  constructor(
-    tessellationFactor: number = 1,
-    computeMethod: ComputeMethod,
-    gpuCompute?: TopoGPUCompute
-  ) {
+  constructor(tessellationFactor: number = 1, computeMethod: ComputeMethod) {
     this.tessellationFactor = tessellationFactor;
     this.computeMethod = computeMethod;
-    this.gpuCompute = gpuCompute ?? null;
   }
 
   async generateMesh(
     elevations: Float32Array,
     width: number,
     height: number
-  ): Promise<MeshData | ComputeMethod> {
+  ): Promise<MeshData> {
     const start = performance.now();
 
-    let meshData: MeshData | null = null;
+    let meshData: MeshData;
 
     switch (this.computeMethod) {
       case ComputeMethod.WASM:
@@ -46,7 +40,8 @@ export class MeshGenerator {
           elevations,
           width,
           height,
-          this.tessellationFactor
+          this.tessellationFactor,
+          this.computeMethod
         );
         console.log(
           `🔥 WASM Mesh Generation Time: ${(performance.now() - start).toFixed(
@@ -63,19 +58,12 @@ export class MeshGenerator {
           )}ms`
         );
         break;
-
-      case ComputeMethod.GPU:
-        if (!this.gpuCompute)
-          throw new Error('GPU Compute is not initialized.');
-        await this.gpuCompute.runComputeShader(elevations, width, height); // No return needed
-        console.log(
-          `⚡ WebGPU Mesh Generation Time: ${(
-            performance.now() - start
-          ).toFixed(4)}ms`
+      default:
+        // GPU Compute Mesh Gen is configured in Topo3DRenderer, not perfect but it is what it is for this personal project
+        throw new Error(
+          `Non-WASM/JS Compute Method: ${this.computeMethod} should be handled eslewhere from MeshGen.ts`
         );
-        return ComputeMethod.GPU; // Renderer will consume the buffers directly
     }
-
     return meshData;
   }
 
@@ -156,6 +144,7 @@ export class MeshGenerator {
       colors: new Float32Array(colors),
       normals: new Float32Array(normals),
       vertexCount: vertices.length / 3,
+      computeMethod: this.computeMethod,
     };
   }
 

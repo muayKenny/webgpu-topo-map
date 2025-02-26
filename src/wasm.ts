@@ -1,5 +1,5 @@
 import init, * as wasm from '../wasm/pkg/mesh_compute.js';
-import { MeshData } from './renderer/geometry/MeshGenerator.js';
+import { ComputeMethod, MeshData } from './renderer/geometry/MeshGenerator.js';
 
 export const wasmReady = init().then(() => {
   // console.log("🚀 WASM wasm'ing up!");
@@ -10,7 +10,8 @@ export async function mesh_compute(
   elevations: Float32Array,
   width: number,
   height: number,
-  tessellationFactor: number
+  tessellationFactor: number,
+  computeMethod: ComputeMethod
 ): Promise<MeshData> {
   const instance = await wasmReady;
 
@@ -28,6 +29,7 @@ export async function mesh_compute(
     colors: result.colors,
     normals: result.normals,
     vertexCount: result.vertex_count,
+    computeMethod,
   };
 
   // ✅ Call `free()` on the original object
