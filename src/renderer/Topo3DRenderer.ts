@@ -115,39 +115,95 @@ export class Topo3DRenderer {
   async setupGeometry(processed: ProcessedElevationData) {
     if (!this.device) return;
 
-    const { vertices, colors, normals, vertexCount } =
-      await this.meshGenerator.generateMesh(
-        processed.normalizedElevations,
-        processed.dimensions.width,
-        processed.dimensions.height
-      );
+    const meshData = await this.meshGenerator.generateMesh(
+      processed.normalizedElevations,
+      processed.dimensions.width,
+      processed.dimensions.height
+    );
 
-    this.vertexCount = vertexCount;
+    if (!meshData) {
+      // Proceed with GPU-rendered mesh
+    } else {
+      const { vertices, colors, normals, vertexCount } = meshData;
+      this.vertexCount = vertexCount;
 
-    // Create GPU buffers
-    this.vertexBuffer = this.device.createBuffer({
-      size: vertices.byteLength,
-      usage: GPUBufferUsage.VERTEX,
-      mappedAtCreation: true,
-    });
-    new Float32Array(this.vertexBuffer.getMappedRange()).set(vertices);
-    this.vertexBuffer.unmap();
+      // Create GPU buffers
+      this.vertexBuffer = this.device.createBuffer({
+        size: vertices.byteLength,
+        usage: GPUBufferUsage.VERTEX,
+        mappedAtCreation: true,
+      });
+      new Float32Array(this.vertexBuffer.getMappedRange()).set(vertices);
+      this.vertexBuffer.unmap();
 
-    this.colorBuffer = this.device.createBuffer({
-      size: colors.byteLength,
-      usage: GPUBufferUsage.VERTEX,
-      mappedAtCreation: true,
-    });
-    new Float32Array(this.colorBuffer.getMappedRange()).set(colors);
-    this.colorBuffer.unmap();
+      this.colorBuffer = this.device.createBuffer({
+        size: colors.byteLength,
+        usage: GPUBufferUsage.VERTEX,
+        mappedAtCreation: true,
+      });
+      new Float32Array(this.colorBuffer.getMappedRange()).set(colors);
+      this.colorBuffer.unmap();
 
-    this.normalBuffer = this.device.createBuffer({
-      size: normals.byteLength,
-      usage: GPUBufferUsage.VERTEX,
-      mappedAtCreation: true,
-    });
-    new Float32Array(this.normalBuffer.getMappedRange()).set(normals);
-    this.normalBuffer.unmap();
+      this.normalBuffer = this.device.createBuffer({
+        size: normals.byteLength,
+        usage: GPUBufferUsage.VERTEX,
+        mappedAtCreation: true,
+      });
+      new Float32Array(this.normalBuffer.getMappedRange()).set(normals);
+      this.normalBuffer.unmap();
+      this.vertexCount = vertexCount;
+
+      // Create GPU buffers
+      this.vertexBuffer = this.device.createBuffer({
+        size: vertices.byteLength,
+        usage: GPUBufferUsage.VERTEX,
+        mappedAtCreation: true,
+      });
+      new Float32Array(this.vertexBuffer.getMappedRange()).set(vertices);
+      this.vertexBuffer.unmap();
+
+      this.colorBuffer = this.device.createBuffer({
+        size: colors.byteLength,
+        usage: GPUBufferUsage.VERTEX,
+        mappedAtCreation: true,
+      });
+      new Float32Array(this.colorBuffer.getMappedRange()).set(colors);
+      this.colorBuffer.unmap();
+
+      this.normalBuffer = this.device.createBuffer({
+        size: normals.byteLength,
+        usage: GPUBufferUsage.VERTEX,
+        mappedAtCreation: true,
+      });
+      new Float32Array(this.normalBuffer.getMappedRange()).set(normals);
+      this.normalBuffer.unmap();
+      this.vertexCount = vertexCount;
+
+      // Create GPU buffers
+      this.vertexBuffer = this.device.createBuffer({
+        size: vertices.byteLength,
+        usage: GPUBufferUsage.VERTEX,
+        mappedAtCreation: true,
+      });
+      new Float32Array(this.vertexBuffer.getMappedRange()).set(vertices);
+      this.vertexBuffer.unmap();
+
+      this.colorBuffer = this.device.createBuffer({
+        size: colors.byteLength,
+        usage: GPUBufferUsage.VERTEX,
+        mappedAtCreation: true,
+      });
+      new Float32Array(this.colorBuffer.getMappedRange()).set(colors);
+      this.colorBuffer.unmap();
+
+      this.normalBuffer = this.device.createBuffer({
+        size: normals.byteLength,
+        usage: GPUBufferUsage.VERTEX,
+        mappedAtCreation: true,
+      });
+      new Float32Array(this.normalBuffer.getMappedRange()).set(normals);
+      this.normalBuffer.unmap();
+    }
   }
 
   updateElevationScale(scale: number) {

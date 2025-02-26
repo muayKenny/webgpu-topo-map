@@ -1,6 +1,7 @@
 import { getColorForElevation } from '../../utils/colorMapping';
 import { Vec3 } from '../utils3D';
 import { mesh_compute } from '../../wasm';
+import { TopoGPUCompute } from '../gpu_compute/TopoGPUCompute';
 
 export interface MeshData {
   vertices: Float32Array;
@@ -15,24 +16,29 @@ export enum ComputeMethod {
   JS = 'js',
 }
 
-// Mesh Factory
 export class MeshGenerator {
   private tessellationFactor: number;
   private computeMethod: ComputeMethod;
+  private gpuCompute: TopoGPUCompute | null;
 
-  constructor(tessellationFactor: number = 1, computeMethod: ComputeMethod) {
+  constructor(
+    tessellationFactor: number = 1,
+    computeMethod: ComputeMethod,
+    gpuCompute?: TopoGPUCompute
+  ) {
     this.tessellationFactor = tessellationFactor;
     this.computeMethod = computeMethod;
+    this.gpuCompute = gpuCompute ?? null;
   }
 
   async generateMesh(
-    elevations: Float32Array, // 1D array of elevation values
-    width: number, // Original width of elevation data
-    height: number // Original height of elevation data
-  ): Promise<MeshData> {
+    elevations: Float32Array,
+    width: number,
+    height: number
+  ): Promise<MeshData | ComputeMethod> {
     const start = performance.now();
 
-    let meshData: MeshData;
+    let meshData: MeshData | null = null;
 
     switch (this.computeMethod) {
       case ComputeMethod.WASM:
@@ -58,8 +64,16 @@ export class MeshGenerator {
         );
         break;
 
-      default:
-        throw new Error('Invalid compute method selected.');
+      case ComputeMethod.GPU:
+        if (!this.gpuCompute)
+          throw new Error('GPU Compute is not initialized.');
+        await this.gpuCompute.runComputeShader(elevations, width, height); // No return needed
+        console.log(
+          `⚡ WebGPU Mesh Generation Time: ${(
+            performance.now() - start
+          ).toFixed(4)}ms`
+        );
+        return ComputeMethod.GPU; // Renderer will consume the buffers directly
     }
 
     return meshData;

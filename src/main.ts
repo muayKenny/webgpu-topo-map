@@ -22,7 +22,7 @@ async function main() {
     const elevationData = await loadElevationData('/data/elevation.tiff');
     const processed = processElevationData(elevationData);
 
-    let currentRenderer: Topo2DRenderer | Topo3DRenderer | null = null;
+    let currentRenderer: Topo2DRenderer | Topo3DRenderer;
     const elevationControl = document.getElementById(
       'elevationControl'
     ) as HTMLDivElement;
@@ -48,21 +48,15 @@ async function main() {
           return;
         }
 
-        if (selectedMethod === ComputeMethod.GPU) {
-        } else {
-          const meshGenerator = new MeshGenerator(2, selectedMethod);
-          currentRenderer = new Topo3DRenderer(
-            'topoCanvas',
-            meshGenerator,
-            device
-          );
-        }
+        const meshGenerator = new MeshGenerator(2, selectedMethod);
+
+        currentRenderer = new Topo3DRenderer(
+          'topoCanvas',
+          meshGenerator,
+          device
+        );
 
         elevationControl.style.display = 'block';
-      }
-
-      if (!currentRenderer) {
-        throw new Error('No renderer selected.');
       }
 
       const initialized = await currentRenderer.initialize();
