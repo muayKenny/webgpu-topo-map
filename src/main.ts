@@ -48,13 +48,21 @@ async function main() {
           return;
         }
 
-        const meshGenerator = new MeshGenerator(2, selectedMethod);
-        currentRenderer = new Topo3DRenderer(
-          'topoCanvas',
-          meshGenerator,
-          device
-        );
+        if (selectedMethod === ComputeMethod.GPU) {
+        } else {
+          const meshGenerator = new MeshGenerator(2, selectedMethod);
+          currentRenderer = new Topo3DRenderer(
+            'topoCanvas',
+            meshGenerator,
+            device
+          );
+        }
+
         elevationControl.style.display = 'block';
+      }
+
+      if (!currentRenderer) {
+        throw new Error('No renderer selected.');
       }
 
       const initialized = await currentRenderer.initialize();

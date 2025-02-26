@@ -29,30 +29,40 @@ export class MeshGenerator {
     elevations: Float32Array, // 1D array of elevation values
     width: number, // Original width of elevation data
     height: number // Original height of elevation data
-  ): Promise<MeshData | void> {
+  ): Promise<MeshData> {
+    const start = performance.now();
+
     let meshData: MeshData;
 
-    if (this.computeMethod === ComputeMethod.WASM) {
-      const start = performance.now();
-      meshData = await mesh_compute(
-        elevations,
-        width,
-        height,
-        this.tessellationFactor
-      );
-      const end = performance.now();
-      console.log(
-        `🔥 WASM Mesh Generation Time: ${(end - start).toFixed(4)}ms`
-      );
-      return meshData;
+    switch (this.computeMethod) {
+      case ComputeMethod.WASM:
+        meshData = await mesh_compute(
+          elevations,
+          width,
+          height,
+          this.tessellationFactor
+        );
+        console.log(
+          `🔥 WASM Mesh Generation Time: ${(performance.now() - start).toFixed(
+            4
+          )}ms`
+        );
+        break;
+
+      case ComputeMethod.JS:
+        meshData = this.javascriptComputeMesh(elevations, width, height);
+        console.log(
+          `🟢 JS Mesh Generation Time: ${(performance.now() - start).toFixed(
+            4
+          )}ms`
+        );
+        break;
+
+      default:
+        throw new Error('Invalid compute method selected.');
     }
-    if (this.computeMethod === ComputeMethod.JS) {
-      const start = performance.now();
-      meshData = this.javascriptComputeMesh(elevations, width, height);
-      const end = performance.now();
-      console.log(`🟢 JS Mesh Generation Time: ${(end - start).toFixed(4)}ms`);
-      return meshData;
-    }
+
+    return meshData;
   }
 
   private javascriptComputeMesh(
