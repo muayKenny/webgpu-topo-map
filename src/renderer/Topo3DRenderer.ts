@@ -5,6 +5,7 @@ import { PipelineBuilder } from './pipeline/Pipeline';
 
 import vertexShader from './pipeline/vertex.wgsl?raw';
 import fragmentShader from './pipeline/fragment.wgsl?raw';
+import { TopoGPUCompute } from './gpu_compute/TopoGPUCompute';
 
 export class Topo3DRenderer {
   private canvas: HTMLCanvasElement;
@@ -204,7 +205,24 @@ export class Topo3DRenderer {
     this.normalBuffer.unmap();
   }
 
-  async setupGeometryGPUCompute(processed: ProcessedElevationData) {}
+  async setupGeometryGPUCompute(processed: ProcessedElevationData) {
+    if (!this.device) return;
+
+    // Initialize GPU Compute Class
+    const topoCompute = new TopoGPUCompute(this.device);
+    await topoCompute.initialize(
+      processed.dimensions.width,
+      processed.dimensions.height
+    );
+
+    // Run Compute Shader on Elevation Data
+
+    await topoCompute.runComputeShader(
+      processed.normalizedElevations,
+      processed.dimensions.width,
+      processed.dimensions.height
+    );
+  }
 
   updateElevationScale(scale: number) {
     if (!this.device || !this.uniformBuffer) return;
