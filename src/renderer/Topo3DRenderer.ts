@@ -152,57 +152,6 @@ export class Topo3DRenderer {
     new Float32Array(this.normalBuffer.getMappedRange()).set(normals);
     this.normalBuffer.unmap();
     this.vertexCount = vertexCount;
-
-    // Create GPU buffers
-    this.vertexBuffer = this.device.createBuffer({
-      size: vertices.byteLength,
-      usage: GPUBufferUsage.VERTEX,
-      mappedAtCreation: true,
-    });
-    new Float32Array(this.vertexBuffer.getMappedRange()).set(vertices);
-    this.vertexBuffer.unmap();
-
-    this.colorBuffer = this.device.createBuffer({
-      size: colors.byteLength,
-      usage: GPUBufferUsage.VERTEX,
-      mappedAtCreation: true,
-    });
-    new Float32Array(this.colorBuffer.getMappedRange()).set(colors);
-    this.colorBuffer.unmap();
-
-    this.normalBuffer = this.device.createBuffer({
-      size: normals.byteLength,
-      usage: GPUBufferUsage.VERTEX,
-      mappedAtCreation: true,
-    });
-    new Float32Array(this.normalBuffer.getMappedRange()).set(normals);
-    this.normalBuffer.unmap();
-    this.vertexCount = vertexCount;
-
-    // Create GPU buffers
-    this.vertexBuffer = this.device.createBuffer({
-      size: vertices.byteLength,
-      usage: GPUBufferUsage.VERTEX,
-      mappedAtCreation: true,
-    });
-    new Float32Array(this.vertexBuffer.getMappedRange()).set(vertices);
-    this.vertexBuffer.unmap();
-
-    this.colorBuffer = this.device.createBuffer({
-      size: colors.byteLength,
-      usage: GPUBufferUsage.VERTEX,
-      mappedAtCreation: true,
-    });
-    new Float32Array(this.colorBuffer.getMappedRange()).set(colors);
-    this.colorBuffer.unmap();
-
-    this.normalBuffer = this.device.createBuffer({
-      size: normals.byteLength,
-      usage: GPUBufferUsage.VERTEX,
-      mappedAtCreation: true,
-    });
-    new Float32Array(this.normalBuffer.getMappedRange()).set(normals);
-    this.normalBuffer.unmap();
   }
 
   async setupGeometryGPUCompute(processed: ProcessedElevationData) {
