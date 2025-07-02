@@ -42,13 +42,38 @@ async function main() {
         elevationControl.style.display = 'none';
       } else {
         const adapter = await navigator.gpu.requestAdapter();
-        const device = await adapter?.requestDevice();
-        if (!device) {
+        if (!adapter) {
           console.error('WebGPU is not supported on this browser.');
           return;
         }
 
-        const meshGenerator = new MeshGenerator(2, selectedMethod);
+        // set up requesting a large buffer limit from the GPU.
+        const w = processed.dimensions.width; // original grid width
+        const h = processed.dimensions.height; // original grid height
+        const tesselationFactor = 7; // tessellation factor you decided on
+        const floatsPerVertex = 9; // pos (3) + normal (3) + color (3)
+        const gridW = (w - 1) * tesselationFactor + 1;
+        const gridH = (h - 1) * tesselationFactor + 1;
+        const vertexCount = gridW * gridH;
+        const vboBytes = vertexCount * floatsPerVertex * 4;
+
+        const REQUIRED_CAP = 256 * 1024 * 1024;
+        const limits =
+          vboBytes > REQUIRED_CAP
+            ? {
+                maxBufferSize: Math.min(vboBytes, adapter.limits.maxBufferSize),
+              }
+            : {};
+
+        console.log(vboBytes);
+
+        const device = await adapter.requestDevice({ requiredLimits: limits });
+
+        // tesselation factor of 8
+        const meshGenerator = new MeshGenerator(
+          tesselationFactor,
+          selectedMethod
+        );
 
         currentRenderer = new Topo3DRenderer(
           'topoCanvas',
@@ -106,6 +131,50 @@ async function main() {
       updateButtons('3D');
     });
 
+    const periodMs = 10_000; // full cycle = 10 s
+
+    let base = 0; // starting value (set when wave starts)
+    let amplitude = 0; // 1 - base
+    let animId: number | null = null;
+    // ------------------------------------------------------------------
+
+    function animate(t: number) {
+      const phase = (t % periodMs) / periodMs; // 0 … 1
+      const angle = phase * 2 * Math.PI; // 0 … 2π
+      // 0 → 1 → 0 shape, then shift it up by `base`
+      const scale = base + amplitude * 0.5 * (1 - Math.cos(angle));
+
+      if (!scaleSlider.matches(':active')) {
+        scaleSlider.value = scale.toFixed(3);
+        scaleValue.textContent = scaleSlider.value;
+      }
+
+      if (currentRenderer instanceof Topo3DRenderer) {
+        currentRenderer.updateElevationScale(scale);
+      }
+
+      animId = requestAnimationFrame(animate);
+    }
+
+    function startWave() {
+      if (animId !== null) return; // already running
+      base = parseFloat(scaleSlider.value); // current slider pos
+      amplitude = Math.max(0, 1 - base); // climb up to 1.0
+      animId = requestAnimationFrame(animate);
+    }
+
+    function stopWave() {
+      if (animId !== null) {
+        cancelAnimationFrame(animId);
+        animId = null;
+      }
+    }
+
+    const btnStart = document.getElementById('startWave') as HTMLButtonElement;
+    const btnStop = document.getElementById('stopWave') as HTMLButtonElement;
+
+    btnStart.addEventListener('click', startWave);
+    btnStop.addEventListener('click', stopWave);
     // Initialize with 3D view by default
     await initializeRenderer('3D');
     updateButtons('3D');

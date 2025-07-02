@@ -136,8 +136,8 @@ pub fn mesh_compute(
     height: usize,
     tessellation_factor: usize
 ) -> MeshComputeData {
-    let new_width = width * tessellation_factor;
-    let new_height = height * tessellation_factor;
+    let new_width  = (width  - 1) * tessellation_factor + 1;
+    let new_height = (height - 1) * tessellation_factor + 1;
 
     let interpolated = interpolate_elevations(elevations, width, height, new_width, new_height);
 
