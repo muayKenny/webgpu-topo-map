@@ -23,13 +23,10 @@ async function main() {
     const processed = processElevationData(elevationData);
 
     let currentRenderer: Topo2DRenderer | Topo3DRenderer;
-    const elevationControl = document.getElementById(
-      'elevationControl'
-    ) as HTMLDivElement;
-    const scaleSlider = document.getElementById(
-      'elevationScale'
-    ) as HTMLInputElement;
-    const scaleValue = document.getElementById('scaleValue') as HTMLSpanElement;
+    // const scaleSlider = document.getElementById(
+    //   'elevationScale'
+    // ) as HTMLInputElement;
+    // const scaleValue = document.getElementById('scaleValue') as HTMLSpanElement;
     const computeSelector = document.getElementById(
       'computeMethod'
     ) as HTMLSelectElement;
@@ -39,7 +36,6 @@ async function main() {
 
       if (type === '2D') {
         currentRenderer = new Topo2DRenderer('topoCanvas');
-        elevationControl.style.display = 'none';
       } else {
         const adapter = await navigator.gpu.requestAdapter();
         if (!adapter) {
@@ -81,7 +77,7 @@ async function main() {
           device
         );
 
-        elevationControl.style.display = 'block';
+        // elevationControl.style.display = 'block';
       }
 
       const initialized = await currentRenderer.initialize();
@@ -113,13 +109,13 @@ async function main() {
       await initializeRenderer('3D');
     });
 
-    scaleSlider.addEventListener('input', () => {
-      const scale = parseFloat(scaleSlider.value);
-      scaleValue.textContent = scale.toString();
-      if (currentRenderer instanceof Topo3DRenderer) {
-        currentRenderer.updateElevationScale(scale);
-      }
-    });
+    // scaleSlider.addEventListener('input', () => {
+    //   const scale = parseFloat(scaleSlider.value);
+    //   scaleValue.textContent = scale.toString();
+    //   if (currentRenderer instanceof Topo3DRenderer) {
+    //     currentRenderer.updateElevationScale(scale);
+    //   }
+    // });
 
     btn2D.addEventListener('click', async () => {
       await initializeRenderer('2D');
@@ -131,44 +127,66 @@ async function main() {
       updateButtons('3D');
     });
 
+    // ----------------------------- STATE ---------------------------------
     const periodMs = 10_000; // full cycle = 10 s
-
-    let base = 0; // starting value (set when wave starts)
-    let amplitude = 0; // 1 - base
+    let currentScale = 0.1; // starting value
     let animId: number | null = null;
-    // ------------------------------------------------------------------
+    // ---------------------------------------------------------------------
 
-    function animate(t: number) {
-      const phase = (t % periodMs) / periodMs; // 0 … 1
-      const angle = phase * 2 * Math.PI; // 0 … 2π
-      // 0 → 1 → 0 shape, then shift it up by `base`
-      const scale = base + amplitude * 0.5 * (1 - Math.cos(angle));
+    function applyScale(scale: number) {
+      currentScale = scale;
 
-      if (!scaleSlider.matches(':active')) {
-        scaleSlider.value = scale.toFixed(3);
-        scaleValue.textContent = scaleSlider.value;
-      }
-
+      // feed the renderer
       if (currentRenderer instanceof Topo3DRenderer) {
         currentRenderer.updateElevationScale(scale);
       }
 
+      // optional: print or overlay the value somewhere
+      console.debug('elevationScale =', scale.toFixed(3));
+    }
+
+    function animate(t: number) {
+      // 0 → 1 → 0 cosine wave centred on currentScale’s base point
+      const phase = (t % periodMs) / periodMs; // 0 … 1
+      const angle = phase * 2 * Math.PI; // 0 … 2π
+      const scale = 0.5 * (1 - Math.cos(angle)); // 0 → 1 → 0
+
+      applyScale(scale); // <- key call
       animId = requestAnimationFrame(animate);
     }
 
-    function startWave() {
-      if (animId !== null) return; // already running
-      base = parseFloat(scaleSlider.value); // current slider pos
-      amplitude = Math.max(0, 1 - base); // climb up to 1.0
-      animId = requestAnimationFrame(animate);
+    // --------------------------- CONTROLS --------------------------------
+    function startWave(): void {
+      if (animId === null) {
+        animId = requestAnimationFrame(animate);
+      }
     }
 
-    function stopWave() {
+    function stopWave(): void {
       if (animId !== null) {
         cancelAnimationFrame(animId);
         animId = null;
       }
+      // hold whatever value the wave ended on
     }
+
+    // quick manual nudge helpers (optional)
+    function nudgeUp(d = 0.01) {
+      applyScale(Math.min(1, currentScale + d));
+    }
+    function nudgeDown(d = 0.01) {
+      applyScale(Math.max(0, currentScale - d));
+    }
+
+    // ---------------------------------------------------------------------
+    // Example: wire keyboard arrows for nudging
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp') nudgeUp();
+      if (e.key === 'ArrowDown') nudgeDown();
+    });
+
+    // ---------------------------------------------------------------------
+    // call startWave() / stopWave() from your Start / Stop buttons
 
     const btnStart = document.getElementById('startWave') as HTMLButtonElement;
     const btnStop = document.getElementById('stopWave') as HTMLButtonElement;
