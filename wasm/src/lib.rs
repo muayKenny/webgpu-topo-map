@@ -1,13 +1,12 @@
-use wasm_bindgen::prelude::*;
 use js_sys::Float32Array;
-
+use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct MeshComputeData {
     vertices: Vec<f32>,
     colors: Vec<f32>,
     normals: Vec<f32>,
-    vertex_count: usize, 
+    vertex_count: usize,
 }
 
 #[wasm_bindgen]
@@ -38,7 +37,7 @@ fn interpolate_elevations(
     original_width: usize,
     original_height: usize,
     new_width: usize,
-    new_height: usize
+    new_height: usize,
 ) -> Vec<f32> {
     let mut interpolated = vec![0.0; new_width * new_height];
 
@@ -60,18 +59,21 @@ fn interpolate_elevations(
             let z3 = elevations[y2 * original_width + x1];
             let z4 = elevations[y2 * original_width + x2];
 
-            interpolated[y * new_width + x] =
-                z1 * (1.0 - dx) * (1.0 - dy) +
-                z2 * dx * (1.0 - dy) +
-                z3 * (1.0 - dx) * dy +
-                z4 * dx * dy;
+            interpolated[y * new_width + x] = z1 * (1.0 - dx) * (1.0 - dy)
+                + z2 * dx * (1.0 - dy)
+                + z3 * (1.0 - dx) * dy
+                + z4 * dx * dy;
         }
     }
 
     interpolated
 }
 
-fn calculate_normal(v1: (f32, f32, f32), v2: (f32, f32, f32), v3: (f32, f32, f32)) -> (f32, f32, f32) {
+fn calculate_face_normal(
+    v1: (f32, f32, f32),
+    v2: (f32, f32, f32),
+    v3: (f32, f32, f32),
+) -> (f32, f32, f32) {
     let edge1 = (v2.0 - v1.0, v2.1 - v1.1, v2.2 - v1.2);
     let edge2 = (v3.0 - v1.0, v3.1 - v1.1, v3.2 - v1.2);
 
@@ -91,21 +93,111 @@ fn calculate_normal(v1: (f32, f32, f32), v2: (f32, f32, f32), v3: (f32, f32, f32
     (normal.0 / length, normal.1 / length, normal.2 / length)
 }
 
+/// Compute a smooth normal for the grid vertex (gx, gy) using central
+/// differences.  Works on borders by clamping to the nearest valid cell.
+fn vertex_normal(
+    gx: usize,
+    gy: usize,
+    grid_w: usize,
+    grid_h: usize,
+    elev: &[f32], // the interpolated height array
+) -> (f32, f32, f32) {
+    // helper to index 1-D slice
+    let idx = |x: usize, y: usize| -> f32 { elev[y * grid_w + x] };
+
+    // height samples of immediate neighbours (with edge clamping)
+    let left = if gx > 0 { idx(gx - 1, gy) } else { idx(gx, gy) };
+    let right = if gx + 1 < grid_w {
+        idx(gx + 1, gy)
+    } else {
+        idx(gx, gy)
+    };
+    let top = if gy > 0 { idx(gx, gy - 1) } else { idx(gx, gy) };
+    let bottom = if gy + 1 < grid_h {
+        idx(gx, gy + 1)
+    } else {
+        idx(gx, gy)
+    };
+
+    // derivatives (central difference)
+    let dx = (right - left) * 0.5;
+    let dy = (bottom - top) * 0.5;
+
+    // normal = (-dx, -dy, 1)  → then normalize
+    let mut nx = -dx;
+    let mut ny = -dy;
+    let mut nz = 1.0;
+    let len = (nx * nx + ny * ny + nz * nz).sqrt().max(1e-6);
+    nx /= len;
+    ny /= len;
+    nz /= len;
+    (nx, ny, nz)
+}
+
 #[derive(Copy, Clone)]
 struct RGB {
     r: f32,
     g: f32,
-    b: f32
+    b: f32,
 }
 
 const TERRAIN_COLORS: [(f32, RGB); 7] = [
-    (0.0, RGB { r: 0.6, g: 0.6, b: 0.95 }), // Light blue for lowest areas
-    (0.1, RGB { r: 0.4, g: 0.8, b: 0.4 }),  // Light green for low lands
-    (0.3, RGB { r: 0.2, g: 0.6, b: 0.2 }),  // Darker green
-    (0.5, RGB { r: 0.8, g: 0.7, b: 0.5 }),  // Light brown
-    (0.7, RGB { r: 0.7, g: 0.55, b: 0.4 }), // Medium brown
-    (0.9, RGB { r: 0.75, g: 0.75, b: 0.75 }), // Gray
-    (1.0, RGB { r: 1.0, g: 1.0, b: 1.0 }),  // White for peaks!
+    (
+        0.0,
+        RGB {
+            r: 0.6,
+            g: 0.6,
+            b: 0.95,
+        },
+    ), // Light blue for lowest areas
+    (
+        0.1,
+        RGB {
+            r: 0.4,
+            g: 0.8,
+            b: 0.4,
+        },
+    ), // Light green for low lands
+    (
+        0.3,
+        RGB {
+            r: 0.2,
+            g: 0.6,
+            b: 0.2,
+        },
+    ), // Darker green
+    (
+        0.5,
+        RGB {
+            r: 0.8,
+            g: 0.7,
+            b: 0.5,
+        },
+    ), // Light brown
+    (
+        0.7,
+        RGB {
+            r: 0.7,
+            g: 0.55,
+            b: 0.4,
+        },
+    ), // Medium brown
+    (
+        0.9,
+        RGB {
+            r: 0.75,
+            g: 0.75,
+            b: 0.75,
+        },
+    ), // Gray
+    (
+        1.0,
+        RGB {
+            r: 1.0,
+            g: 1.0,
+            b: 1.0,
+        },
+    ), // White for peaks!
 ];
 
 fn get_color_for_elevation(normalized_elevation: f32) -> RGB {
@@ -115,9 +207,8 @@ fn get_color_for_elevation(normalized_elevation: f32) -> RGB {
 
         if normalized_elevation >= stop1 && normalized_elevation <= stop2 {
             let terped_color = (normalized_elevation - stop1) / (stop2 - stop1);
-           
 
-             return RGB {  
+            return RGB {
                 r: color1.r + (color2.r - color1.r) * terped_color,
                 g: color1.g + (color2.g - color1.g) * terped_color,
                 b: color1.b + (color2.b - color1.b) * terped_color,
@@ -135,17 +226,16 @@ extern "C" {
     fn log(s: &str);
 }
 
-
 #[wasm_bindgen]
 pub fn mesh_compute(
     elevations: &[f32],
     width: usize,
     height: usize,
-    tessellation_factor: usize
+    tessellation_factor: usize,
 ) -> MeshComputeData {
-    let new_width  = (width  - 1) * tessellation_factor + 1;
+    let new_width = (width - 1) * tessellation_factor + 1;
     let new_height = (height - 1) * tessellation_factor + 1;
-    
+
     log(&format!(
         "wasm mesh_compute: elevations length = {}, width = {}, height = {}",
         elevations.len(),
@@ -155,7 +245,7 @@ pub fn mesh_compute(
 
     let interpolated = interpolate_elevations(elevations, width, height, new_width, new_height);
 
-   log(&format!(
+    log(&format!(
         "wasm interpolated length = {} ({} × {})",
         interpolated.len(),
         new_width,
@@ -178,17 +268,12 @@ pub fn mesh_compute(
             let z3 = interpolated[(y + 1) * new_width + x];
             let z4 = interpolated[(y + 1) * new_width + (x + 1)];
 
-            let quad_vertices = [
-                (x1, y1, z1),
-                (x2, y1, z2),
-                (x1, y2, z3),
-                (x2, y2, z4),
-            ];
+            let quad_vertices = [(x1, y1, z1), (x2, y1, z2), (x1, y2, z3), (x2, y2, z4)];
 
             let triangle_indices = [[0, 1, 2], [1, 3, 2]];
 
             for indices in triangle_indices {
-                let normal = calculate_normal(
+                let normal = calculate_face_normal(
                     quad_vertices[indices[0]],
                     quad_vertices[indices[1]],
                     quad_vertices[indices[2]],
@@ -202,15 +287,17 @@ pub fn mesh_compute(
                         quad_vertices[i].2,
                     ]);
                     let vertex_z = quad_vertices[i].2;
-                    
+
                     let color: RGB = get_color_for_elevation(vertex_z);
                     colors.extend_from_slice(&[color.r, color.g, color.b]);
                 }
             }
         }
     }
-    
+
     let vertex_count = vertices.len() / 3;
+
+    log(&format!("wasm vertex_count length = {}", vertex_count));
 
     MeshComputeData {
         vertices,

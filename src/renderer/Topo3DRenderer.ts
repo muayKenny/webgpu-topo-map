@@ -77,6 +77,13 @@ export class Topo3DRenderer {
         this.shininess,
       ]);
 
+      console.log(
+        this.ambientLight,
+        this.diffuseStrength,
+        this.specularStrength,
+        this.shininess
+      );
+
       this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData);
 
       const bindGroupLayout = this.device.createBindGroupLayout({
@@ -121,9 +128,18 @@ export class Topo3DRenderer {
       processed.dimensions.width,
       processed.dimensions.height
     );
+
     // CPU computed mesh properties
     const { vertices, colors, normals, vertexCount } = meshData;
 
+    console.log(
+      'js normals.length:',
+      normals.length,
+      'js vertices.length:',
+      vertices.length,
+      'js vertexCount:',
+      vertexCount
+    );
     // continue with CPU computed mesh
     this.vertexCount = vertexCount;
 
