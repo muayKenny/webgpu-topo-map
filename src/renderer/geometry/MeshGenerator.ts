@@ -48,6 +48,10 @@ export class MeshGenerator {
             4
           )}ms`
         );
+        // console.log(elevations.length);
+        // console.log(meshData.);
+
+        // console.log(meshData.normals.length, meshData.vertices.length);
         break;
 
       case ComputeMethod.JS:

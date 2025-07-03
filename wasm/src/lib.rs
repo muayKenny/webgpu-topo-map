@@ -130,6 +130,13 @@ fn get_color_for_elevation(normalized_elevation: f32) -> RGB {
 }
 
 #[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
+
+#[wasm_bindgen]
 pub fn mesh_compute(
     elevations: &[f32],
     width: usize,
@@ -138,8 +145,22 @@ pub fn mesh_compute(
 ) -> MeshComputeData {
     let new_width  = (width  - 1) * tessellation_factor + 1;
     let new_height = (height - 1) * tessellation_factor + 1;
+    
+    log(&format!(
+        "wasm mesh_compute: elevations length = {}, width = {}, height = {}",
+        elevations.len(),
+        width,
+        height
+    ));
 
     let interpolated = interpolate_elevations(elevations, width, height, new_width, new_height);
+
+   log(&format!(
+        "wasm interpolated length = {} ({} × {})",
+        interpolated.len(),
+        new_width,
+        new_height
+    ));
 
     let mut vertices = Vec::new();
     let mut colors = Vec::new();

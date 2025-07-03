@@ -61,11 +61,8 @@ async function main() {
               }
             : {};
 
-        console.log(vboBytes);
-
         const device = await adapter.requestDevice({ requiredLimits: limits });
 
-        // tesselation factor of 8
         const meshGenerator = new MeshGenerator(
           tesselationFactor,
           selectedMethod
